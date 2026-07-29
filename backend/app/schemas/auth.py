@@ -1,0 +1,29 @@
+"""Auth request/response schemas."""
+from pydantic import BaseModel, EmailStr
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+
+class TokenData(BaseModel):
+    sub: str
+    role: str
+    department: str
+
+
+class MahaSSOCallbackRequest(BaseModel):
+    """Stub for Gov. Maha-SSO OAuth callback — replace with real token exchange."""
+    code: str
+    state: str | None = None

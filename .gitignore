@@ -1,0 +1,36 @@
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+backend/.env
+
+# Dependencies & Virtual Envs
+node_modules/
+.venv/
+backend/.venv/
+venv/
+ENV/
+env/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Next.js & Build outputs
+.next/
+out/
+build/
+dist/
+
+# System & Tooling
+.DS_Store
+Thumbs.db
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.v0-trash/
+.vercel/
+.agents/
