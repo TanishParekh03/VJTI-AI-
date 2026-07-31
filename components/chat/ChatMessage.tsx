@@ -7,7 +7,7 @@ import remarkGfm from 'remark-gfm'
 import {
   Copy, Bookmark, BookmarkCheck, RotateCcw, Download,
   ChevronDown, ChevronUp, CheckCircle2, AlertCircle, HelpCircle,
-  Sparkles, ThumbsUp, ThumbsDown
+  Sparkles, ThumbsUp, ThumbsDown, Volume2, VolumeX
 } from 'lucide-react'
 import type { Message } from '@/lib/mock-data'
 import SourceCard from './SourceCard'
@@ -66,8 +66,21 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
     (message as any).feedback ?? null
   )
   const [feedbackLoading, setFeedbackLoading] = useState(false)
+  const [isSpeaking, setIsSpeaking] = useState(false)
 
   const isUser = message.role === 'user'
+
+  const handleSpeak = () => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel()
+      setIsSpeaking(false)
+    } else {
+      const utterance = new SpeechSynthesisUtterance(message.content)
+      utterance.onend = () => setIsSpeaking(false)
+      setIsSpeaking(true)
+      window.speechSynthesis.speak(utterance)
+    }
+  }
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content)
@@ -173,6 +186,16 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
 
         {/* Actions row */}
         <div className="flex items-center gap-1 mt-1.5 ml-1">
+          <button
+            onClick={handleSpeak}
+            className={cn(
+              "flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors",
+              isSpeaking ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+            )}
+          >
+            {isSpeaking ? <VolumeX className="w-3 h-3 animate-pulse" /> : <Volume2 className="w-3 h-3" />}
+            {isSpeaking ? 'Stop' : 'Read Aloud'}
+          </button>
           <button
             onClick={handleCopy}
             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"

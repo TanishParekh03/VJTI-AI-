@@ -11,6 +11,7 @@ class ChatRequest(BaseModel):
     message: str
     conversation_id: str | None = None  # null = new conversation
     language: str | None = None
+    mode: Literal["grounded", "general"] = "grounded"
 
 
 class MessageRead(BaseModel):

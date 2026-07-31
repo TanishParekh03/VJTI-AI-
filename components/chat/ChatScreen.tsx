@@ -4,7 +4,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Send, Paperclip, Sparkles, GraduationCap, Zap,
-  RefreshCw, CheckSquare, Map as MapIcon, Users, ChevronRight, PanelRight
+  RefreshCw, CheckSquare, Map as MapIcon, Users, ChevronRight, PanelRight,
+  Mic, MicOff
 } from 'lucide-react'
 import { SUGGESTED_PROMPTS, type Message, type Conversation } from '@/lib/mock-data'
 import ChatSidebar from './ChatSidebar'
@@ -129,7 +130,10 @@ export default function ChatScreen() {
   const [streamingText, setStreamingText] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [rightPanelOpen, setRightPanelOpen] = useState(false)
+  const [chatMode, setChatMode] = useState<'grounded' | 'general'>('grounded')
   const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<any>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -142,6 +146,45 @@ export default function ChatScreen() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isThinking, streamingText])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      recognitionRef.current = new SpeechRecognition()
+      recognitionRef.current.continuous = true
+      recognitionRef.current.interimResults = true
+
+      recognitionRef.current.onresult = (event: any) => {
+        let currentTranscript = ''
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          currentTranscript += event.results[i][0].transcript
+        }
+        setInput(prev => {
+          const newText = prev + (prev.endsWith(' ') || prev.length === 0 ? '' : ' ') + currentTranscript
+          return newText
+        })
+      }
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error', event.error)
+        setIsListening(false)
+      }
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false)
+      }
+    }
+  }, [])
+
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop()
+      setIsListening(false)
+    } else {
+      recognitionRef.current?.start()
+      setIsListening(true)
+    }
+  }
 
   const showToast = useCallback((msg: string) => {
     setToastMsg(msg)
@@ -303,6 +346,7 @@ export default function ChatScreen() {
           message: text.trim(),
           conversation_id: payloadConvId,
           language: i18n.language,
+          mode: chatMode,
         }),
       })
 
@@ -473,9 +517,25 @@ export default function ChatScreen() {
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted border border-border text-xs text-muted-foreground">
-              <Sparkles className="w-3 h-3 text-primary" />
-              HTE-AI · v2.1
+            <div className="flex bg-muted p-0.5 rounded-lg border border-border">
+              <button
+                onClick={() => setChatMode('grounded')}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium rounded-md transition-all",
+                  chatMode === 'grounded' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Grounded
+              </button>
+              <button
+                onClick={() => setChatMode('general')}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium rounded-md transition-all",
+                  chatMode === 'general' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                General
+              </button>
             </div>
             <button
               onClick={() => setRightPanelOpen(!rightPanelOpen)}
@@ -529,10 +589,20 @@ export default function ChatScreen() {
                 className="flex-1 bg-transparent resize-none text-sm text-foreground placeholder:text-muted-foreground focus:outline-none min-h-[24px] max-h-40 leading-6 py-0.5"
               />
               <button
+                onClick={toggleListening}
+                className={cn(
+                  'shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all mb-1',
+                  isListening ? 'text-red-500 bg-red-500/10' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                )}
+                title={isListening ? "Stop listening" : "Start dictating"}
+              >
+                {isListening ? <MicOff className="w-4 h-4 animate-pulse" /> : <Mic className="w-4 h-4" />}
+              </button>
+              <button
                 onClick={() => sendMessage(input)}
                 disabled={!input.trim() || isThinking}
                 className={cn(
-                  'shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all',
+                  'shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all mb-1',
                   input.trim() && !isThinking
                     ? 'bg-primary text-primary-foreground hover:opacity-90'
                     : 'bg-muted text-muted-foreground cursor-not-allowed'
