@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import '@/lib/i18n'
 import LandingPage from '@/components/landing/LandingPage'
 import AppShell from '@/components/layout/AppShell'
 

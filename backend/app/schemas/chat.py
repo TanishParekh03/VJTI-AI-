@@ -10,6 +10,7 @@ from app.schemas.source import SourceRead
 class ChatRequest(BaseModel):
     message: str
     conversation_id: str | None = None  # null = new conversation
+    language: str | None = None
 
 
 class MessageRead(BaseModel):

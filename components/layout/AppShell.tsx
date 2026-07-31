@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MessageSquare, FileText, BarChart2, Users, LogOut,
-  Sparkles, Search, Bell, ChevronRight, Menu, X
+  Sparkles, Search, Bell, ChevronRight, Menu, X, HelpCircle
 } from 'lucide-react'
 import type { AppScreen } from '@/app/page'
 import ChatScreen from '@/components/chat/ChatScreen'
@@ -12,7 +12,10 @@ import DocumentLibrary from '@/components/documents/DocumentLibrary'
 import AnalyticsDashboard from '@/components/analytics/AnalyticsDashboard'
 import AdminPanel from '@/components/admin/AdminPanel'
 import CommandPalette from '@/components/layout/CommandPalette'
+import LanguageSwitcher from '@/components/layout/LanguageSwitcher'
+import ProductTour from '@/components/layout/ProductTour'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   currentScreen: AppScreen
@@ -21,10 +24,10 @@ interface Props {
 }
 
 const NAV_ITEMS = [
-  { id: 'chat' as AppScreen, label: 'Assistant', icon: MessageSquare },
-  { id: 'documents' as AppScreen, label: 'Documents', icon: FileText },
-  { id: 'analytics' as AppScreen, label: 'Analytics', icon: BarChart2 },
-  { id: 'admin' as AppScreen, label: 'Admin', icon: Users },
+  { id: 'chat' as AppScreen, labelKey: 'nav.assistant', icon: MessageSquare },
+  { id: 'documents' as AppScreen, labelKey: 'nav.documents', icon: FileText },
+  { id: 'analytics' as AppScreen, labelKey: 'nav.analytics', icon: BarChart2 },
+  { id: 'admin' as AppScreen, labelKey: 'nav.admin', icon: Users },
 ]
 
 function Topbar({
@@ -33,14 +36,17 @@ function Topbar({
   onLogout,
   onCommandPalette,
   onMobileMenu,
+  onStartTour,
 }: {
   currentScreen: AppScreen
   onNavigate: (s: AppScreen) => void
   onLogout: () => void
   onCommandPalette: () => void
   onMobileMenu: () => void
+  onStartTour: () => void
 }) {
   const current = NAV_ITEMS.find((n) => n.id === currentScreen)
+  const { t } = useTranslation()
 
   return (
     <header className="flex items-center justify-between px-4 h-14 border-b border-border bg-card shrink-0 z-10">
@@ -68,16 +74,17 @@ function Topbar({
         {current && (
           <div className="hidden sm:flex items-center gap-1 text-muted-foreground">
             <ChevronRight className="w-3.5 h-3.5" />
-            <span className="text-sm font-medium text-foreground">{current.label}</span>
+            <span className="text-sm font-medium text-foreground">{t(current.labelKey)}</span>
           </div>
         )}
       </div>
 
       {/* Desktop nav */}
-      <nav className="hidden lg:flex items-center gap-1">
-        {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
+      <nav id="tour-nav" className="hidden lg:flex items-center gap-1">
+        {NAV_ITEMS.map(({ id, labelKey, icon: Icon }) => (
           <button
             key={id}
+            id={`nav-${id}`}
             onClick={() => onNavigate(id)}
             className={cn(
               'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
@@ -87,7 +94,7 @@ function Topbar({
             )}
           >
             <Icon className="w-4 h-4" />
-            {label}
+            {t(labelKey)}
           </button>
         ))}
       </nav>
@@ -95,28 +102,41 @@ function Topbar({
       {/* Right actions */}
       <div className="flex items-center gap-1.5">
         <button
+          id="tour-search"
           onClick={onCommandPalette}
           className="hidden sm:flex items-center gap-2 h-8 px-3 rounded-lg border border-border bg-background text-xs text-muted-foreground hover:text-foreground hover:border-muted-foreground/40 transition-colors"
         >
           <Search className="w-3.5 h-3.5" />
-          <span>Search</span>
+          <span>{t('nav.search')}</span>
           <kbd className="ml-1 px-1 rounded border border-border bg-muted text-[10px]">⌘K</kbd>
         </button>
 
-        <button className="relative w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary" />
-        </button>
-
-        <div className="w-px h-5 bg-border mx-1" />
+        <LanguageSwitcher />
 
         <button
-          onClick={onLogout}
-          className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted text-xs transition-colors"
+          onClick={onStartTour}
+          title={t('tour.start_tour') || 'Start Tour'}
+          className="relative w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
-          <LogOut className="w-3.5 h-3.5" />
-          <span className="hidden sm:block">Logout</span>
+          <HelpCircle className="w-4 h-4" />
         </button>
+
+        <div id="tour-logout" className="flex items-center gap-1.5">
+          <button className="relative w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+            <Bell className="w-4 h-4" />
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary" />
+          </button>
+
+          <div className="w-px h-5 bg-border mx-1" />
+
+          <button
+            onClick={onLogout}
+            className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted text-xs transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden sm:block">{t('nav.logout')}</span>
+          </button>
+        </div>
       </div>
     </header>
   )
@@ -135,6 +155,8 @@ function MobileSidebar({
   onClose: () => void
   onLogout: () => void
 }) {
+  const { t } = useTranslation()
+
   return (
     <AnimatePresence>
       {open && (
@@ -166,7 +188,7 @@ function MobileSidebar({
             </div>
 
             <nav className="flex-1 p-3 space-y-1">
-              {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
+              {NAV_ITEMS.map(({ id, labelKey, icon: Icon }) => (
                 <button
                   key={id}
                   onClick={() => { onNavigate(id); onClose() }}
@@ -178,7 +200,7 @@ function MobileSidebar({
                   )}
                 >
                   <Icon className="w-4 h-4" />
-                  {label}
+                  {t(labelKey)}
                 </button>
               ))}
             </nav>
@@ -189,7 +211,7 @@ function MobileSidebar({
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               >
                 <LogOut className="w-4 h-4" />
-                Logout
+                {t('nav.logout')}
               </button>
             </div>
           </motion.div>
@@ -210,6 +232,7 @@ const SCREEN_COMPONENTS: Record<AppScreen, React.ComponentType> = {
 export default function AppShell({ currentScreen, onNavigate, onLogout }: Props) {
   const [commandOpen, setCommandOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [tourOpen, setTourOpen] = useState(false)
 
   // Cmd+K shortcut
   useEffect(() => {
@@ -233,6 +256,7 @@ export default function AppShell({ currentScreen, onNavigate, onLogout }: Props)
         onLogout={onLogout}
         onCommandPalette={() => setCommandOpen(true)}
         onMobileMenu={() => setMobileMenuOpen(true)}
+        onStartTour={() => setTourOpen(true)}
       />
 
       <MobileSidebar
@@ -264,6 +288,7 @@ export default function AppShell({ currentScreen, onNavigate, onLogout }: Props)
         onNavigate={onNavigate}
         onLogout={onLogout}
       />
+      <ProductTour runTour={tourOpen} onClose={() => setTourOpen(false)} />
     </div>
   )
 }

@@ -6,11 +6,20 @@ backend/.env
 
 # Dependencies & Virtual Envs
 node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
 .venv/
 backend/.venv/
 venv/
 ENV/
 env/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # Python bytecode & cache
 __pycache__/

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { FileText, File, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import type { Source } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   source: Source
@@ -23,6 +24,7 @@ const typeBg: Record<string, string> = {
 }
 
 export default function SourceCard({ source, index }: Props) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   return (
@@ -46,7 +48,7 @@ export default function SourceCard({ source, index }: Props) {
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Page {source.page} · {source.section}
+            {t('chat.page')} {source.page} · {source.section}
           </p>
         </div>
 
@@ -64,7 +66,7 @@ export default function SourceCard({ source, index }: Props) {
           </p>
           <button className="mt-2 flex items-center gap-1 text-xs text-primary hover:underline">
             <ExternalLink className="w-3 h-3" />
-            View full document
+            {t('chat.view_full_document')}
           </button>
         </div>
       )}

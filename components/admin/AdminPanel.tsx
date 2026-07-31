@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { MOCK_USERS, type User, type Role } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 const roleCfg: Record<Role, { className: string; dotColor: string }> = {
   Admin: {
@@ -51,6 +52,7 @@ function UserRow({
   selected: boolean
   onSelect: (id: string) => void
 }) {
+  const { t } = useTranslation()
   const role = roleCfg[user.role]
   const status = statusCfg[user.status]
 
@@ -83,7 +85,7 @@ function UserRow({
       <td className="px-4 py-3 hidden sm:table-cell">
         <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border', role.className)}>
           <span className={cn('w-1.5 h-1.5 rounded-full', role.dotColor)} />
-          {user.role}
+          {t(`admin.role_${user.role.toLowerCase()}`)}
         </span>
       </td>
       <td className="px-4 py-3 hidden md:table-cell">
@@ -92,7 +94,7 @@ function UserRow({
       <td className="px-4 py-3 hidden lg:table-cell">
         <div className={cn('flex items-center gap-1.5 text-xs font-medium', status.className)}>
           {status.icon}
-          {user.status}
+          {t(`admin.status_${user.status.toLowerCase()}`)}
         </div>
       </td>
       <td className="px-4 py-3 hidden lg:table-cell">
@@ -152,6 +154,7 @@ function RolePermissionsCard({ role, permissions }: { role: Role; permissions: s
 type SortKey = 'name' | 'role' | 'status' | 'lastActive' | 'queriesThisMonth'
 
 export default function AdminPanel() {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<Role | 'All'>('All')
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive' | 'Pending'>('All')
@@ -209,21 +212,21 @@ export default function AdminPanel() {
         {/* Page header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-foreground">User Management</h1>
-            <p className="text-sm text-muted-foreground">{MOCK_USERS.length} users · {MOCK_USERS.filter((u) => u.status === 'Active').length} active</p>
+            <h1 className="text-xl font-bold text-foreground">{t('admin.user_management')}</h1>
+            <p className="text-sm text-muted-foreground">{MOCK_USERS.length} {t('admin.users')} · {MOCK_USERS.filter((u) => u.status === 'Active').length} {t('admin.active_users_count')}</p>
           </div>
           <div className="flex items-center gap-2">
             <button className="h-9 px-3.5 rounded-lg border border-border text-sm font-medium text-foreground flex items-center gap-1.5 hover:bg-muted transition">
               <Download className="w-3.5 h-3.5" />
-              Export
+              {t('admin.export')}
             </button>
             <button className="h-9 px-3.5 rounded-lg border border-border text-sm font-medium text-foreground flex items-center gap-1.5 hover:bg-muted transition">
               <Mail className="w-3.5 h-3.5" />
-              Invite
+              {t('admin.invite')}
             </button>
             <button className="h-9 px-3.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-1.5 hover:opacity-90 transition">
               <UserPlus className="w-3.5 h-3.5" />
-              Add User
+              {t('admin.add_user')}
             </button>
           </div>
         </div>
@@ -245,7 +248,7 @@ export default function AdminPanel() {
               <div className="flex items-center justify-between mb-2">
                 <span className={cn('inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border', roleCfg[role].className)}>
                   <span className={cn('w-1.5 h-1.5 rounded-full', roleCfg[role].dotColor)} />
-                  {role}
+                  {t(`admin.role_${role.toLowerCase()}`)}
                 </span>
               </div>
               <p className="text-2xl font-bold text-foreground">{count}</p>
@@ -347,13 +350,13 @@ export default function AdminPanel() {
                         />
                       </th>
                       {([
-                        { key: 'name', label: 'User' },
+                        { key: 'name', label: 'User', className: '' },
                         { key: 'role', label: 'Role', className: 'hidden sm:table-cell' },
                         { key: 'department', label: 'Department', className: 'hidden md:table-cell' },
                         { key: 'status', label: 'Status', className: 'hidden lg:table-cell' },
                         { key: 'lastActive', label: 'Last Active', className: 'hidden lg:table-cell' },
                         { key: 'queriesThisMonth', label: 'Queries', className: 'hidden xl:table-cell text-right' },
-                      ] as const).map(({ key, label, className }) => (
+                      ]).map(({ key, label, className }) => (
                         <th
                           key={key}
                           className={cn('px-4 py-2.5 text-left', className)}

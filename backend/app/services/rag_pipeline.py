@@ -53,7 +53,7 @@ def _score_to_confidence(score: float) -> str:
 
 # ── System prompt assembly ─────────────────────────────────────────────────────
 
-def _build_system_prompt(results: list[SearchResult]) -> str:
+def _build_system_prompt(results: list[SearchResult], language: str | None = None) -> str:
     context_blocks = "\n\n".join(
         f"[Source {i + 1}]\n"
         f"Title: {r.title}\n"
@@ -64,6 +64,9 @@ def _build_system_prompt(results: list[SearchResult]) -> str:
         f"Excerpt:\n{r.snippet}"
         for i, r in enumerate(results)
     )
+
+    lang_map = {"en": "English", "hi": "Hindi", "mr": "Marathi"}
+    target_lang = lang_map.get(language, "English") if language else "English"
 
     return (
         "You are the HTE AI Assistant for the Higher & Technical Education Department, "
@@ -80,7 +83,7 @@ def _build_system_prompt(results: list[SearchResult]) -> str:
         "4. FORMATTING: Format your answer in elegant, executive Markdown. Never start with conversational intros like 'Based on the provided document...' or 'Here is what I found:'. Start immediately with a clean <h3> title (e.g., ### State Merit Scholarship — Income Criteria).\n"
         "5. TABLES & VISUAL STRUCTURE: Whenever presenting criteria, percentages, dates, weightages, or income limits, ALWAYS use clean Markdown Tables (| Category | Value / Weightage |).\n"
         "6. BULLETS & CALLOUTS: Use clean bullet points with **bold lead-ins** for key conditions. Use blockquotes (> **Note:** ...) for important caveats or circular references.\n"
-        "7. BILINGUAL LANGUAGE MATCHING: Detect the language of the user's question. If the user asks in Marathi (मराठी), provide your complete answer in clear, natural Marathi while keeping exact circular numbers and figures accurate. If the user asks in English, answer in English.\n"
+        f"7. BILINGUAL LANGUAGE MATCHING: You MUST formulate your entire response in **{target_lang}**. This is a strict requirement. All explanations, headings, and tables must be in {target_lang}. Keep exact circular numbers, figures, and technical terms accurate regardless of language.\n"
         "8. Do NOT speculate about policies not present in the provided documents.\n\n"
 
         "GR CONFLICT & SUPERSESSION DETECTION — CRITICAL:\n"
@@ -116,6 +119,7 @@ async def run_rag_pipeline(
     message_text: str,
     conversation_id: str | None,
     db: AsyncSession,
+    language: str | None = None,
 ) -> AsyncGenerator[str, None]:
     """
     Full RAG pipeline as an async SSE generator.
@@ -208,7 +212,7 @@ async def run_rag_pipeline(
             return
 
         # ── Step 5: Assemble strict grounded system prompt ────────────────────
-        system_prompt = _build_system_prompt(above_threshold)
+        system_prompt = _build_system_prompt(above_threshold, language)
         llm_messages: list[dict[str, str]] = [
             {"role": "system", "content": system_prompt},
             *history_messages,

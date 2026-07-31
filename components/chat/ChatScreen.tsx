@@ -11,6 +11,7 @@ import ChatSidebar from './ChatSidebar'
 import ChatMessage from './ChatMessage'
 import SourceCard from './SourceCard'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 const ICON_MAP: Record<string, React.ElementType> = {
   GraduationCap, Zap, RefreshCw, CheckSquare, Map: MapIcon, Users,
@@ -25,6 +26,7 @@ function getAuthToken(): string | null {
 }
 
 function ThinkingIndicator() {
+  const { t } = useTranslation()
   return (
     <div className="flex gap-3">
       <div className="shrink-0 w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center mt-1">
@@ -37,7 +39,7 @@ function ThinkingIndicator() {
             <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '150ms' }} />
             <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '300ms' }} />
           </span>
-          Searching documents and generating response…
+          {t('chat.searching')}
         </div>
       </div>
     </div>
@@ -119,6 +121,7 @@ function EmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
 }
 
 export default function ChatScreen() {
+  const { t, i18n } = useTranslation()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [currentConvId, setCurrentConvId] = useState<string | null>(null)
   const [input, setInput] = useState('')
@@ -299,6 +302,7 @@ export default function ChatScreen() {
         body: JSON.stringify({
           message: text.trim(),
           conversation_id: payloadConvId,
+          language: i18n.language,
         }),
       })
 
@@ -465,7 +469,7 @@ export default function ChatScreen() {
               </svg>
             </button>
             <span className="text-sm font-medium text-foreground truncate">
-              {currentConv?.title ?? 'New conversation'}
+              {currentConv?.title ?? t('chat.new_conversation')}
             </span>
           </div>
           <div className="flex items-center gap-1">
@@ -496,8 +500,8 @@ export default function ChatScreen() {
                   key={msg.id}
                   message={msg}
                   onFollowUp={sendMessage}
-                  onBookmark={() => showToast('Bookmarked!')}
-                  onCopy={() => showToast('Copied to clipboard!')}
+                  onBookmark={() => showToast(t('chat.bookmarked'))}
+                  onCopy={() => showToast(t('chat.copied'))}
                   onRegenerate={() => {}}
                 />
               ))}
@@ -520,7 +524,7 @@ export default function ChatScreen() {
                 value={input}
                 onChange={handleInputChange}
                 onKeyDown={handleInputKey}
-                placeholder="Ask about HTE policies, circulars, scholarships…"
+                placeholder={t('chat.ask_question')}
                 rows={1}
                 className="flex-1 bg-transparent resize-none text-sm text-foreground placeholder:text-muted-foreground focus:outline-none min-h-[24px] max-h-40 leading-6 py-0.5"
               />
