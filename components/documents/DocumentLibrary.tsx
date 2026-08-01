@@ -300,7 +300,13 @@ function DocumentDetailDrawer({ doc, onClose, onSelectForCompare, selectedForCom
       </div>
 
       <div className="p-4 border-t border-border flex gap-2">
-        <button className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition">
+        <button 
+          onClick={() => {
+            const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
+            window.open(`${API_BASE}/documents/${doc.id}/download`, '_blank')
+          }}
+          className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition"
+        >
           {t('docs.open_document')}
         </button>
         <button
@@ -315,7 +321,13 @@ function DocumentDetailDrawer({ doc, onClose, onSelectForCompare, selectedForCom
           <GitCompare className="w-3.5 h-3.5" />
           {isSelected ? t('docs.selected') : t('docs.compare')}
         </button>
-        <button className="h-9 px-4 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition">
+        <button 
+          onClick={() => {
+            const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
+            window.location.href = `${API_BASE}/documents/${doc.id}/download`
+          }}
+          className="h-9 px-4 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition"
+        >
           {t('docs.download')}
         </button>
       </div>
