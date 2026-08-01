@@ -2,11 +2,13 @@
 
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   FileText, Download, Sparkles, ArrowLeft, Loader2,
   BookOpen, Calendar, Building2, Tag, Search, CheckCircle2,
   AlertCircle, ChevronDown, Plus, Trash2, FileDown, BarChart2,
-  Layers, ShieldCheck
+  Layers, ShieldCheck, Printer
 } from 'lucide-react'
 
 interface Props {
@@ -94,6 +96,7 @@ Format the report with these sections:
 5. ## Impact Assessment
 6. ## References & Circular Numbers
 
+CRITICAL: YOU MUST USE PROPER MARKDOWN TABLES WITH | COLUMNS |. NEVER USE UNBROKEN STRINGS. Ensure the tone is highly official, authoritative, and strictly adheres to government reporting standards.
 Use proper Markdown formatting with headers, bold key terms, and tables where applicable.
 ${langNote}
 Start with a formal header: # Policy Summary Report — ${topic || 'HTE Policy'}
@@ -114,6 +117,7 @@ Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'lo
 ## ⚠️ Common Pitfalls & Cautions
 ## 📞 Contacts & Escalation
 
+CRITICAL: YOU MUST USE PROPER MARKDOWN TABLES WITH | COLUMNS |. NEVER USE UNBROKEN STRINGS. Ensure the tone is highly official, authoritative, and strictly adheres to government reporting standards.
 Use checklists (- [ ] items), tables, and callout blockquotes.
 ${langNote}`
 
@@ -132,6 +136,8 @@ Generated: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'lo
 ## Supersession & Amendment Analysis
 ## ⚠️ Conflict Flags
 ## Recommendation — Which GR Takes Precedence
+
+CRITICAL: YOU MUST USE PROPER MARKDOWN TABLES WITH | COLUMNS |. NEVER USE UNBROKEN STRINGS. Ensure the tone is highly official, authoritative, and strictly adheres to government reporting standards.
 ${langNote}`
 
       case 'department_overview':
@@ -163,6 +169,16 @@ ${langNote}`
 
     try {
       const prompt = buildPrompt()
+      let query_text = topic
+      const actualDepartment = department && department !== 'All Departments' ? department : ''
+      if (selectedType === 'gr_comparison') {
+         query_text = grNumbers.filter(Boolean).join(', ') || topic || 'GR comparison'
+      } else if (!topic && actualDepartment) {
+         query_text = actualDepartment
+      } else if (topic && actualDepartment) {
+         query_text = `${topic} ${actualDepartment}`
+      }
+
       const token = getAuthToken()
 
       const res = await fetch(`${API_BASE}/chat/stream`, {
@@ -172,7 +188,8 @@ ${langNote}`
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          message: prompt,
+          message: query_text,
+          report_prompt: prompt,
           mode: 'grounded',
           language,
         }),
@@ -183,6 +200,7 @@ ${langNote}`
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let fullText = ''
+      let currentEvent = ''
       let buffer = ''
 
       while (true) {
@@ -193,20 +211,24 @@ ${langNote}`
         buffer = lines.pop() ?? ''
 
         for (const line of lines) {
-          if (line.startsWith('data:')) {
+          if (line.startsWith('event:')) {
+            currentEvent = line.slice(6).trim()
+          } else if (line.startsWith('data:')) {
             try {
-              const json = JSON.parse(line.slice(5).trim())
-              if (json.content) {
-                fullText += json.content
+              const data = JSON.parse(line.slice(5).trim())
+              if (currentEvent === 'token') {
+                if (data.content) {
+                  fullText += data.content
+                  setReportContent(fullText)
+                }
+              } else if (currentEvent === 'not_found') {
+                fullText = data.message ?? '⚠️ No matching documents found for this report topic.'
+                setReportContent(fullText)
+              } else if (currentEvent === 'error') {
+                fullText = `⚠️ ${data.message ?? 'An error occurred during report generation.'}`
                 setReportContent(fullText)
               }
             } catch {}
-          } else if (line.startsWith('event:')) {
-            const eventType = line.slice(6).trim()
-            if (eventType === 'not_found') {
-              fullText = '⚠️ No matching documents found in the database for this report topic. Please try a more specific query or ensure documents are indexed.'
-              setReportContent(fullText)
-            }
           }
         }
       }
@@ -263,10 +285,14 @@ ${langNote}`
     URL.revokeObjectURL(url)
   }
 
+  const handlePrint = () => {
+    window.print()
+  }
+
   return (
-    <div className="h-full flex overflow-hidden bg-[#f8f9fc]">
+    <div className="h-full flex overflow-hidden bg-[#f8f9fc] print:bg-white print:h-auto print:overflow-visible">
       {/* Left config panel */}
-      <div className="w-full sm:w-[400px] shrink-0 flex flex-col border-r border-gray-200 bg-white overflow-y-auto">
+      <div className="w-full sm:w-[400px] shrink-0 flex flex-col border-r border-gray-200 bg-white overflow-y-auto print:hidden">
         {/* Header */}
         <div className="px-6 py-5 border-b border-gray-100 shrink-0">
           <button
@@ -470,14 +496,14 @@ ${langNote}`
       </div>
 
       {/* Right output panel */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-gradient-to-br from-[#f8f9fc] to-[#f1f3f9] relative">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-gradient-to-br from-[#f8f9fc] to-[#f1f3f9] relative print:overflow-visible print:bg-white print:bg-none">
         {/* Subtle mesh in background of output area */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40 print:hidden">
           <div className="absolute -top-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-indigo-200/50 blur-[100px]" />
           <div className="absolute top-[40%] -left-[10%] w-[40%] h-[40%] rounded-full bg-blue-200/50 blur-[100px]" />
         </div>
         {/* Output toolbar */}
-        <div className="flex items-center justify-between px-6 h-14 border-b border-gray-200 bg-white shrink-0">
+        <div className="flex items-center justify-between px-6 h-14 border-b border-gray-200 bg-white shrink-0 print:hidden">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-indigo-600" />
             <span className="font-semibold text-gray-900 text-sm">
@@ -510,12 +536,19 @@ ${langNote}`
                 <Download className="w-3.5 h-3.5" />
                 .html
               </button>
+              <button
+                onClick={handlePrint}
+                className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50 shadow-sm text-xs font-semibold transition-colors ml-1"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                Print PDF
+              </button>
             </div>
           )}
         </div>
 
         {/* Report content */}
-        <div className="flex-1 overflow-y-auto p-6" ref={reportRef}>
+        <div className="flex-1 overflow-y-auto p-6 print:overflow-visible print:p-0" ref={reportRef}>
           <AnimatePresence mode="wait">
             {!reportContent && !generating && (
               <motion.div
@@ -556,9 +589,9 @@ ${langNote}`
                 key="report"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="max-w-4xl mx-auto relative z-10 pb-10"
+                className="max-w-4xl mx-auto relative z-10 pb-10 print:pb-0"
               >
-                <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-2xl shadow-indigo-900/5 overflow-hidden">
+                <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-2xl shadow-indigo-900/5 overflow-hidden print:shadow-none print:border-none print:rounded-none">
                   {/* Watermark header */}
                   <div className="flex items-center justify-between p-8 border-b border-gray-100 bg-gradient-to-r from-gray-50/50 to-white/50">
                     <div className="flex items-center gap-4">
@@ -580,15 +613,17 @@ ${langNote}`
                     </div>
                   </div>
 
-                  <div className="p-10 ai-prose text-gray-800 text-[15px] leading-relaxed whitespace-pre-wrap">
-                    {reportContent}
+                  <div className="p-10 ai-prose text-gray-800 text-[15px] leading-relaxed">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {reportContent || ''}
+                    </ReactMarkdown>
                     {generating && (
-                      <span className="inline-block w-0.5 h-4 bg-indigo-500 ml-0.5 animate-pulse" />
+                      <span className="inline-block w-0.5 h-4 bg-indigo-500 ml-0.5 animate-pulse print:hidden" />
                     )}
                   </div>
 
                   {!generating && reportContent && (
-                    <div className="mt-8 pt-4 border-t border-gray-100 flex items-center justify-between">
+                    <div className="mt-8 pt-4 border-t border-gray-100 flex items-center justify-between print:hidden">
                       <p className="text-[11px] text-gray-400">
                         Generated by HTE KnowledgeBase AI · Answers grounded in official Maharashtra GRs
                       </p>
@@ -598,6 +633,9 @@ ${langNote}`
                         </button>
                         <button onClick={handleDownloadHtml} className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-semibold transition-colors">
                           <Download className="w-3 h-3" /> .html
+                        </button>
+                        <button onClick={handlePrint} className="flex items-center gap-1 text-xs text-gray-700 hover:text-indigo-800 font-semibold transition-colors ml-2">
+                          <Printer className="w-3 h-3" /> Print PDF
                         </button>
                       </div>
                     </div>

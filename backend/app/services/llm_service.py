@@ -316,10 +316,10 @@ async def extract_search_filters(query: str) -> dict:
         f"'{query}'\n\n"
         "Look for:\n"
         "1. 'department': e.g., 'pharmacy', 'engineering', 'hte', 'technical education'\n"
-        "2. 'year': A specific 4 digit year e.g. '2022' or '2023'\n"
+        "2. 'category': e.g., 'gr', 'circular', 'notice', 'policy'\n"
         "If a constraint is not explicitly mentioned, omit the key or set it to null.\n"
         "Return ONLY a raw JSON object, nothing else:\n"
-        '{"department": "pharmacy", "year": "2023"}'
+        '{"department": "pharmacy", "category": "notice"}'
     )
     messages: list[LLMMessage] = [{"role": "user", "content": prompt}]
     raw_response = ""

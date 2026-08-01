@@ -99,6 +99,16 @@ async def _ensure_index(client: AsyncQdrantClient) -> None:
                 field_name="container_tags",
                 field_schema="keyword",
             )
+            await client.create_payload_index(
+                collection_name=COLLECTION_NAME,
+                field_name="department",
+                field_schema="keyword",
+            )
+            await client.create_payload_index(
+                collection_name=COLLECTION_NAME,
+                field_name="category",
+                field_schema="keyword",
+            )
             _index_created = True
         else:
             try:
@@ -112,6 +122,18 @@ async def _ensure_index(client: AsyncQdrantClient) -> None:
                 )
             except Exception as e:
                 logger.info(f"Sparse config might already exist or update failed: {e}")
+                
+            # Also ensure payload indexes exist on an existing collection
+            for field in ["department", "category"]:
+                try:
+                    await client.create_payload_index(
+                        collection_name=COLLECTION_NAME,
+                        field_name=field,
+                        field_schema="keyword",
+                    )
+                except Exception as e:
+                    logger.info(f"Index for {field} might already exist: {e}")
+                    
             _index_created = True
     except Exception as e:
         logger.warning(f"Failed to create collection or index: {e}")

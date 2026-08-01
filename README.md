@@ -69,36 +69,46 @@ When a user asks a complex question (e.g., *"What is the eligibility for the Sta
 sequenceDiagram
     participant U as User
     participant P as Pipeline (FastAPI)
-    participant E as FastEmbed
+    participant E as Embeddings (Gemini + FastEmbed)
     participant Q as Qdrant
+    participant X as Cross-Encoder (ms-marco)
     participant G as Gemini LLM
 
-    U->>P: Complex Policy Query
+    U->>P: Policy Query
     
     rect rgb(240, 248, 255)
-    Note over P, G: 1. Query Processing
+    Note over P, G: 1. Query Processing & Short-Circuit
     P->>G: Extract Metadata Filters (Dept, Dates)
     G-->>P: {"dept": "HTE", "year": "2022+"}
-    P->>G: Decompose Query (if multi-part)
-    G-->>P: [Sub-Query 1, Sub-Query 2]
-    P->>G: HyDE: Generate Hypothetical Document
-    G-->>P: "Mock official answer..."
+    
+    alt is Simple Query (<6 words / exact GR)
+        Note over P: ⚡ FAST PATH: Skip HyDE & Decomp
+    else is Complex Query
+        P->>G: Decompose Query (if multi-part)
+        P->>G: HyDE: Generate Hypothetical Document
+    end
     end
     
     rect rgb(255, 245, 238)
-    Note over P, Q: 2. Hybrid Retrieval
-    P->>E: Embed Sub-Queries & HyDE Text
-    E-->>P: Dense Vectors
-    P->>Q: BM25 Sparse + Dense Search + Filters
-    Q-->>P: Top N Chunks (from GRs)
+    Note over P, Q: 2. Parallel Hybrid Retrieval
+    par Dense Embedding
+        P->>E: Gemini (async)
+    and Sparse Embedding
+        P->>E: FastEmbed BM25 (to_thread)
+    end
+    E-->>P: Dense & Sparse Vectors
+    
+    P->>Q: Hybrid Vector Search + Filters
+    Q-->>P: Top 20 Chunks (from GRs)
     end
     
     rect rgb(245, 255, 250)
-    Note over P, G: 3. Synthesis & Evaluation
-    P->>P: Reciprocal Rank Fusion (RRF)
-    P->>G: Grounded System Prompt + Top Chunks
+    Note over P, G: 3. Reranking & Synthesis
+    P->>X: ⚡ Batch predict() Top 20 Candidates
+    X-->>P: Reranked High-Precision Context
+    P->>G: Grounded System Prompt + Reranked Chunks
     G-->>P: Final Source-Cited Answer
-    P->>P: Calculate Confidence Badge
+    P->>P: Calculate Confidence Badge (Telemetry Logged)
     end
     
     P-->>U: Streamed Response + Citations

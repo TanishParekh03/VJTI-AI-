@@ -103,7 +103,7 @@ def _build_system_prompt(results: list[SearchResult], language: str | None = Non
         "3. Use precise figures, circular numbers, and section references as they appear "
         "in the documents.\n"
         "4. FORMATTING: Format your answer in elegant, executive Markdown. Never start with conversational intros like 'Based on the provided document...' or 'Here is what I found:'. Start immediately with a clean <h3> title (e.g., ### State Merit Scholarship — Income Criteria).\n"
-        "5. TABLES & VISUAL STRUCTURE: Whenever presenting criteria, percentages, dates, weightages, or income limits, ALWAYS use clean Markdown Tables (| Category | Value / Weightage |).\n"
+        "5. TABLES & VISUAL STRUCTURE: Whenever presenting criteria, percentages, dates, weightages, or income limits, ALWAYS use clean Markdown Tables. CRUCIAL: Do NOT paste huge raw paragraphs of text inside table cells. Summarize points concisely in the table cells, and use `<br>` to break lines. If a description is very long, use bullet points OUTSIDE the table instead.\n"
         "6. BULLETS & CALLOUTS: Use clean bullet points with **bold lead-ins** for key conditions. Use blockquotes (> **Note:** ...) for important caveats or circular references.\n"
         f"7. BILINGUAL LANGUAGE MATCHING: You MUST formulate your entire response in **{target_lang}**. This is a strict requirement. All explanations, headings, and tables must be in {target_lang}. **CRITICAL:** You must preserve official Government terminology (e.g., specific names of schemes, legal phrases, department names) in their original form while translating responses.\n"
         "8. Do NOT speculate about policies not present in the provided documents.\n\n"
@@ -143,6 +143,7 @@ async def run_rag_pipeline(
     db: AsyncSession,
     language: str | None = None,
     mode: str = "grounded",
+    report_prompt: str | None = None,
 ) -> AsyncGenerator[str, None]:
     """
     Full RAG pipeline as an async SSE generator.
@@ -159,6 +160,7 @@ async def run_rag_pipeline(
     pipeline_start = time.monotonic()
     sm_latency_ms: float | None = None
     llm_latency_ms: float | None = None
+    logger.info(f"STARTING RAG PIPELINE. Message: {message_text!r} | Report Prompt: {report_prompt!r}")
 
     try:
         # ── Step 1: Resolve access-scoped container tags ───────────────────────
@@ -293,8 +295,8 @@ async def run_rag_pipeline(
                     conv = Conversation(
                         id=conversation_id,
                         user_id=user.id,
-                        title=message_text[:60] + ("…" if len(message_text) > 60 else ""),
-                        preview=message_text[:160],
+                        title=message_text.replace('\x00', '')[:60] + ("…" if len(message_text) > 60 else ""),
+                        preview=message_text.replace('\x00', '')[:160],
                         message_count=0,
                     )
                     db.add(conv)
@@ -312,10 +314,11 @@ async def run_rag_pipeline(
 
         # ── Step 5: Assemble strict grounded system prompt ────────────────────
         system_prompt = _build_system_prompt(above_threshold, language)
+        user_content = report_prompt if report_prompt else message_text
         llm_messages: list[dict[str, str]] = [
             {"role": "system", "content": system_prompt},
             *history_messages,
-            {"role": "user", "content": message_text},
+            {"role": "user", "content": user_content},
         ]
 
         # ── Step 6 & 7: Stream LLM tokens ─────────────────────────────────────
@@ -362,8 +365,8 @@ async def run_rag_pipeline(
             conv = Conversation(
                 id=conv_id,
                 user_id=user.id,
-                title=message_text[:60] + ("…" if len(message_text) > 60 else ""),
-                preview=message_text[:160],
+                title=message_text.replace('\x00', '')[:60] + ("…" if len(message_text) > 60 else ""),
+                preview=message_text.replace('\x00', '')[:160],
                 message_count=0,
             )
             db.add(conv)
@@ -377,7 +380,7 @@ async def run_rag_pipeline(
         asst_msg = Message(
             conversation_id=conv_id,
             role="assistant",
-            content=full_answer,
+            content=full_answer.replace('\x00', ''),
             confidence=confidence_label,
             confidence_score=top_score,
         )
@@ -387,11 +390,11 @@ async def run_rag_pipeline(
         for r in above_threshold[:settings.max_context_results]:
             src = Source(
                 message_id=asst_msg.id,
-                title=r.title,
+                title=r.title.replace('\x00', '') if r.title else None,
                 doc_type=r.doc_type,
                 page=r.page,
                 section=r.section,
-                snippet=r.snippet,
+                snippet=r.snippet.replace('\x00', '') if r.snippet else None,
                 relevance_score=r.relevance_score,
                 document_id=r.supermemory_doc_id,
             )
@@ -402,10 +405,10 @@ async def run_rag_pipeline(
         audit = AuditLog(
             user_id=user.id,
             conversation_id=conv_id,
-            query=message_text,
+            query=message_text.replace('\x00', ''),
             retrieved_context=[{
-                "title": r.title,
-                "snippet": r.snippet[:1000], # truncated to avoid massive logs
+                "title": r.title.replace('\x00', '') if r.title else None,
+                "snippet": r.snippet.replace('\x00', '')[:1000] if r.snippet else None, # truncated to avoid massive logs
                 "relevance_score": r.relevance_score,
                 "document_id": r.supermemory_doc_id
             } for r in above_threshold[:settings.max_context_results]],
@@ -477,7 +480,7 @@ async def _persist_user_message(db: AsyncSession, conversation_id: str, content:
     msg = Message(
         conversation_id=conversation_id,
         role="user",
-        content=content,
+        content=content.replace('\x00', ''),
     )
     db.add(msg)
     await db.flush()

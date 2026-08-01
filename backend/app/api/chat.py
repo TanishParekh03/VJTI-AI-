@@ -53,6 +53,7 @@ async def chat_stream(
             conversation_id=body.conversation_id,
             language=body.language,
             mode=body.mode,
+            report_prompt=body.report_prompt,
             db=db,
         ):
             # If client disconnected, stop generating
