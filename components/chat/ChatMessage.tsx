@@ -7,7 +7,7 @@ import remarkGfm from 'remark-gfm'
 import {
   Copy, Bookmark, BookmarkCheck, RotateCcw, Download,
   ChevronDown, ChevronUp, CheckCircle2, AlertCircle, HelpCircle,
-  Sparkles, ThumbsUp, ThumbsDown, Volume2, VolumeX, FileText
+  Sparkles, ThumbsUp, ThumbsDown, Volume2, VolumeX, FileText, FileDown
 } from 'lucide-react'
 import type { Message } from '@/lib/mock-data'
 import SourceCard from './SourceCard'
@@ -80,6 +80,52 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
       setIsSpeaking(true)
       window.speechSynthesis.speak(utterance)
     }
+  }
+
+  const handleExport = () => {
+    // Build a neat memo-style text document
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
+    const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+
+    const sourceLines = (message.sources ?? []).map(
+      (s, i) => `[${i + 1}] ${s.title}${s.page ? ` — Page ${s.page}` : ''}${s.section ? ` (${s.section})` : ''}`
+    ).join('\n')
+
+    const memo = [
+      `OFFICE MEMO — HTE KnowledgeBase AI`,
+      `Generated: ${dateStr} at ${timeStr}`,
+      ``,
+      `=`.repeat(60),
+      `QUERY`,
+      `=`.repeat(60),
+      `(Conversation ID: ${message.id})`,
+      ``,
+      `=`.repeat(60),
+      `AI ANSWER`,
+      `=`.repeat(60),
+      message.content,
+      ``,
+      ...(sourceLines ? [
+        `=`.repeat(60),
+        `SOURCES CITED`,
+        `=`.repeat(60),
+        sourceLines,
+        ``,
+      ] : []),
+      `─`.repeat(60),
+      `This answer is grounded in official Maharashtra Government documents.`,
+      `Always verify with the department for legal matters.`,
+      `Confidence: ${message.confidence ?? 'N/A'}`,
+    ].join('\n')
+
+    const blob = new Blob([memo], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `HTE_Memo_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleCopy = () => {
@@ -232,6 +278,15 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
           >
             <Copy className="w-3.5 h-3.5" />
             {copied ? 'Copied!' : 'Copy'}
+          </button>
+
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-transparent hover:bg-muted/50 hover:border-border text-[13px] font-medium text-muted-foreground transition-all duration-[180ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+            title="Export as Memo (.txt)"
+          >
+            <FileDown className="w-3.5 h-3.5" />
+            Export
           </button>
         </div>
 

@@ -4,13 +4,17 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   MessageSquare, FileText, BarChart2, Users, LogOut,
-  Sparkles, Search, Bell, ChevronRight, Menu, X, HelpCircle
+  Sparkles, Search, Bell, ChevronRight, Menu, X, HelpCircle,
+  Info, ClipboardList
 } from 'lucide-react'
+
 import type { AppScreen } from '@/app/page'
 import ChatScreen from '@/components/chat/ChatScreen'
 import DocumentLibrary from '@/components/documents/DocumentLibrary'
 import AnalyticsDashboard from '@/components/analytics/AnalyticsDashboard'
 import AdminPanel from '@/components/admin/AdminPanel'
+import AboutPage from '@/components/about/AboutPage'
+import ReportsPage from '@/components/reports/ReportsPage'
 import CommandPalette from '@/components/layout/CommandPalette'
 import LanguageSwitcher from '@/components/layout/LanguageSwitcher'
 import ProductTour from '@/components/layout/ProductTour'
@@ -30,6 +34,14 @@ const NAV_ITEMS = [
   { id: 'admin' as AppScreen, labelKey: 'nav.admin', icon: Users },
 ]
 
+// The four visible top-nav links
+const TOP_NAV = [
+  { label: 'Home', screen: 'chat' as AppScreen },
+  { label: 'Documents', screen: 'documents' as AppScreen },
+  { label: 'Reports', screen: 'reports' as AppScreen },
+  { label: 'About', screen: 'about' as AppScreen },
+]
+
 function Topbar({
   currentScreen,
   onNavigate,
@@ -44,7 +56,6 @@ function Topbar({
   onCommandPalette: () => void
   onMobileMenu: () => void
   onStartTour: () => void
-  onShowAbout: () => void
 }) {
   const current = NAV_ITEMS.find((n) => n.id === currentScreen)
   const { t } = useTranslation()
@@ -62,14 +73,14 @@ function Topbar({
         </button>
 
         {/* Logo */}
-        <div className="flex items-center gap-3">
+        <button onClick={() => onNavigate('chat')} className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-[#1a73e8] flex items-center justify-center shadow-sm">
             <span className="text-white font-bold text-sm tracking-wide">HTE</span>
           </div>
           <div className="hidden sm:block">
             <p className="text-[15px] font-semibold text-[#202124] leading-tight">HTE KnowledgeBase</p>
           </div>
-        </div>
+        </button>
 
         {/* Breadcrumb */}
         {current && (
@@ -81,28 +92,20 @@ function Topbar({
       </div>
 
       {/* Desktop nav */}
-      <nav id="tour-nav" className="hidden lg:flex items-center gap-6">
-        {['Home', 'Search', 'Documents', 'About'].map((label, idx, arr) => (
-          <div key={label} className="flex items-center">
-            <button
-              onClick={() => {
-                if (label === 'Home' || label === 'Search') onNavigate('chat')
-                else if (label === 'Documents') onNavigate('documents')
-                else if (label === 'About') onShowAbout()
-              }}
-              className={cn(
-                'text-[15px] font-medium transition-colors',
-                currentScreen === 'chat' && label === 'Search' ? 'text-[#1a73e8]' : 
-                currentScreen === 'documents' && label === 'Documents' ? 'text-[#1a73e8]' : 
-                'text-[#5f6368] hover:text-[#202124]'
-              )}
-            >
-              {label}
-            </button>
-            {idx < arr.length - 1 && (
-              <span className="ml-6 text-[#dadce0]">·</span>
+      <nav id="tour-nav" className="hidden lg:flex items-center gap-1">
+        {TOP_NAV.map((item, idx) => (
+          <button
+            key={item.label}
+            onClick={() => onNavigate(item.screen)}
+            className={cn(
+              'px-4 py-1.5 rounded-full text-[14px] font-medium transition-all',
+              currentScreen === item.screen
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-[#5f6368] hover:text-[#202124] hover:bg-gray-100'
             )}
-          </div>
+          >
+            {item.label}
+          </button>
         ))}
       </nav>
 
@@ -164,6 +167,12 @@ function MobileSidebar({
 }) {
   const { t } = useTranslation()
 
+  const ALL_ITEMS = [
+    ...NAV_ITEMS,
+    { id: 'reports' as AppScreen, labelKey: 'Reports', icon: ClipboardList },
+    { id: 'about' as AppScreen, labelKey: 'About', icon: Info },
+  ]
+
   return (
     <AnimatePresence>
       {open && (
@@ -195,7 +204,7 @@ function MobileSidebar({
             </div>
 
             <nav className="flex-1 p-3 space-y-1">
-              {NAV_ITEMS.map(({ id, labelKey, icon: Icon }) => (
+              {ALL_ITEMS.map(({ id, labelKey, icon: Icon }) => (
                 <button
                   key={id}
                   onClick={() => { onNavigate(id); onClose() }}
@@ -207,7 +216,7 @@ function MobileSidebar({
                   )}
                 >
                   <Icon className="w-4 h-4" />
-                  {t(labelKey)}
+                  {typeof labelKey === 'string' && labelKey.startsWith('nav.') ? t(labelKey) : labelKey}
                 </button>
               ))}
             </nav>
@@ -228,19 +237,29 @@ function MobileSidebar({
   )
 }
 
-const SCREEN_COMPONENTS: Record<AppScreen, React.ComponentType> = {
-  landing: () => null,
-  chat: ChatScreen,
-  documents: DocumentLibrary,
-  analytics: AnalyticsDashboard,
-  admin: AdminPanel,
+// Screen component registry — About and Reports receive onNavigate as prop
+function ScreenRenderer({
+  screen,
+  onNavigate,
+}: {
+  screen: AppScreen
+  onNavigate: (s: AppScreen) => void
+}) {
+  switch (screen) {
+    case 'chat': return <ChatScreen />
+    case 'documents': return <DocumentLibrary />
+    case 'analytics': return <AnalyticsDashboard />
+    case 'admin': return <AdminPanel />
+    case 'about': return <AboutPage onNavigate={onNavigate} />
+    case 'reports': return <ReportsPage onNavigate={onNavigate} />
+    default: return <ChatScreen />
+  }
 }
 
 export default function AppShell({ currentScreen, onNavigate, onLogout }: Props) {
   const [commandOpen, setCommandOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [tourOpen, setTourOpen] = useState(false)
-  const [aboutOpen, setAboutOpen] = useState(false)
 
   // Cmd+K shortcut
   useEffect(() => {
@@ -254,8 +273,6 @@ export default function AppShell({ currentScreen, onNavigate, onLogout }: Props)
     return () => window.removeEventListener('keydown', handler)
   }, [])
 
-  const ScreenComponent = SCREEN_COMPONENTS[currentScreen] ?? ChatScreen
-
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-background">
       <Topbar
@@ -265,7 +282,6 @@ export default function AppShell({ currentScreen, onNavigate, onLogout }: Props)
         onCommandPalette={() => setCommandOpen(true)}
         onMobileMenu={() => setMobileMenuOpen(true)}
         onStartTour={() => setTourOpen(true)}
-        onShowAbout={() => setAboutOpen(true)}
       />
 
       <MobileSidebar
@@ -286,7 +302,7 @@ export default function AppShell({ currentScreen, onNavigate, onLogout }: Props)
             transition={{ duration: 0.18 }}
             className="h-full"
           >
-            <ScreenComponent />
+            <ScreenRenderer screen={currentScreen} onNavigate={onNavigate} />
           </motion.div>
         </AnimatePresence>
       </main>
@@ -298,40 +314,6 @@ export default function AppShell({ currentScreen, onNavigate, onLogout }: Props)
         onLogout={onLogout}
       />
       <ProductTour runTour={tourOpen} onClose={() => setTourOpen(false)} />
-      {/* About Modal */}
-      <AnimatePresence>
-        {aboutOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-              onClick={() => setAboutOpen(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 12 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.96, y: 12 }}
-              className="relative w-full max-w-md bg-card border border-border shadow-2xl rounded-2xl p-6 flex flex-col items-center text-center"
-            >
-              <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-sm mb-4">
-                <span className="text-white font-bold text-lg tracking-wide">HTE</span>
-              </div>
-              <h2 className="text-xl font-bold text-foreground mb-2">HTE KnowledgeBase</h2>
-              <p className="text-sm text-muted-foreground mb-6">
-                AI-Powered Intelligent System for the Maharashtra Higher & Technical Education Department.
-              </p>
-              <button
-                onClick={() => setAboutOpen(false)}
-                className="w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition"
-              >
-                Close
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }

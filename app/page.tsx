@@ -5,7 +5,8 @@ import '@/lib/i18n'
 import LandingPage from '@/components/landing/LandingPage'
 import AppShell from '@/components/layout/AppShell'
 
-export type AppScreen = 'landing' | 'chat' | 'documents' | 'analytics' | 'admin'
+export type AppScreen = 'landing' | 'chat' | 'documents' | 'analytics' | 'admin' | 'about' | 'reports'
+
 
 export default function Home() {
   const [screen, setScreen] = useState<AppScreen>('landing')
