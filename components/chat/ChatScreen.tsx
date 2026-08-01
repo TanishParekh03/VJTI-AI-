@@ -396,9 +396,6 @@ export default function ChatScreen() {
         throw new Error(`HTTP ${response.status}`)
       }
 
-      // Switch from thinking-spinner to streaming text
-      setIsThinking(false)
-
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let accumulated = ''
@@ -406,9 +403,16 @@ export default function ChatScreen() {
       let finalConfidence: Message['confidence'] = 'medium'
       // backendConvId starts as the same convId (or temp); updated when 'done' event arrives
       let backendConvId = convId
+      let hasReceivedData = false
 
       while (true) {
         const { done, value } = await reader.read()
+        
+        if (!hasReceivedData && !done) {
+          setIsThinking(false)
+          hasReceivedData = true
+        }
+
         if (done) break
 
         const raw = decoder.decode(value, { stream: true })

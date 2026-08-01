@@ -614,10 +614,26 @@ ${langNote}`
                   </div>
 
                   <div className="p-10 ai-prose text-gray-800 text-[15px] leading-relaxed">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {reportContent || ''}
-                    </ReactMarkdown>
-                    {generating && (
+                    {generating && !reportContent ? (
+                      <div className="space-y-8 py-4">
+                        <div className="h-7 bg-indigo-50/80 rounded-md w-1/2 animate-pulse"></div>
+                        <div className="space-y-3">
+                          <div className="h-4 bg-gray-100/80 rounded w-full animate-pulse"></div>
+                          <div className="h-4 bg-gray-100/80 rounded w-full animate-pulse"></div>
+                          <div className="h-4 bg-gray-100/80 rounded w-5/6 animate-pulse"></div>
+                        </div>
+                        <div className="space-y-3 pt-6">
+                          <div className="h-5 bg-indigo-50/60 rounded-md w-1/3 animate-pulse"></div>
+                          <div className="h-4 bg-gray-100/80 rounded w-full animate-pulse"></div>
+                          <div className="h-4 bg-gray-100/80 rounded w-4/6 animate-pulse"></div>
+                        </div>
+                      </div>
+                    ) : (
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {reportContent || ''}
+                      </ReactMarkdown>
+                    )}
+                    {generating && reportContent && (
                       <span className="inline-block w-0.5 h-4 bg-indigo-500 ml-0.5 animate-pulse print:hidden" />
                     )}
                   </div>

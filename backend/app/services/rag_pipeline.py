@@ -119,8 +119,8 @@ def _build_system_prompt(results: list[SearchResult], language: str | None = Non
         "(e.g. different income limits, different dates), highlight the conflict explicitly:\n"
         "   > 🔄 **Conflict Detected**: [Source A] states X while [Source B] states Y. "
         "The more recent document (dated [DATE]) takes precedence per standard GR protocol.\n"
-        "11. ALWAYS cite the GR/circular number and date when available. Format as:\n"
-        "   **GR No.** `[number]` dated `[DD Month YYYY]`\n\n"
+        "11. MANDATORY SOURCE TAGGING: YOU MUST add the exact GR number or Circular number to EVERY summary or reference you make. "
+        "Highlight it clearly by wrapping it in a tag. Format specifically as: 📌 **GR No.** `[number]` dated 🗓️ `[DD Month YYYY]`\n\n"
 
         f"OFFICIAL DOCUMENT CONTEXT:\n{context_blocks}"
     )

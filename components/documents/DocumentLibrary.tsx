@@ -57,6 +57,14 @@ const fileTypeIcon: Record<string, React.ReactNode> = {
   XLSX: <Layers className="w-4 h-4 text-green-500" />,
 }
 
+function extractGrNumber(title: string, id: string): string {
+  const match = title.match(/20\d{16}/);
+  if (match) return `GR-${match[0]}`;
+  const match2 = title.match(/(?:GR|Circular)[\s\-_]*(?:No)?[\s\-_]*([A-Z0-9\-\/]+)/i);
+  if (match2 && match2[1]) return `GR-${match2[1].toUpperCase()}`;
+  return `GR-${id.substring(0, 8).toUpperCase()}`;
+}
+
 // CompareModal is now imported dynamically
 
 // ── Document Detail Drawer ────────────────────────────────────────────────────
@@ -94,6 +102,7 @@ function DocumentDetailDrawer({ doc, docs, onClose, onSelectForCompare, selected
         <div className="grid grid-cols-2 gap-3">
           {[
             { label: t('docs.status'), value: <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border', statusCfg[doc.status].className)}>{statusCfg[doc.status].icon}{t(`docs.${doc.status.toLowerCase()}`)}</span> },
+            { label: 'GR Number', value: <span className="font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded font-bold tracking-tight">{extractGrNumber(doc.title, doc.id)}</span> },
             { label: t('docs.file_type'), value: doc.fileType },
             { label: t('docs.file_size'), value: doc.fileSize },
             { label: t('docs.pages'), value: `${doc.pages} ${t('docs.pages').toLowerCase()}` },
@@ -235,8 +244,11 @@ function DocCard({ doc, onOpen, onToggleCompare, isCompareSelected }: {
 
       <h3 className="text-sm font-semibold text-foreground leading-snug mb-1.5 line-clamp-2">{doc.title}</h3>
 
-      <div className="flex items-center gap-1.5 mb-2">
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-medium">
+      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400 text-xs font-bold font-mono tracking-tight border border-indigo-100 dark:border-indigo-500/20">
+          📌 {extractGrNumber(doc.title, doc.id)}
+        </span>
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
           <Tag className="w-2.5 h-2.5" />
           {doc.category}
         </span>
@@ -286,7 +298,12 @@ function DocRow({ doc, onOpen, onToggleCompare, isCompareSelected }: {
         {fileTypeIcon[doc.fileType]}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">{doc.title}</p>
+        <div className="flex items-center gap-2 mb-0.5">
+          <p className="text-sm font-medium text-foreground truncate">{doc.title}</p>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400 text-[10px] font-bold font-mono tracking-tight border border-indigo-100 dark:border-indigo-500/20 shrink-0">
+            📌 {extractGrNumber(doc.title, doc.id)}
+          </span>
+        </div>
         <p className="text-xs text-muted-foreground truncate">{doc.summary}</p>
       </div>
       <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-medium shrink-0">

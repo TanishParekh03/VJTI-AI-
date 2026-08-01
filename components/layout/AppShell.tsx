@@ -61,7 +61,7 @@ function Topbar({
   const { t } = useTranslation()
 
   return (
-    <header className="relative flex items-center justify-between px-6 h-16 border-b border-[#dadce0] bg-white shrink-0 z-10">
+    <header className="relative flex items-center justify-between px-6 h-16 border-b border-[#dadce0] bg-white shrink-0 z-10 print:hidden">
       <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#1a73e8]" />
       <div className="flex items-center gap-4">
         {/* Mobile menu button */}
@@ -274,7 +274,7 @@ export default function AppShell({ currentScreen, onNavigate, onLogout }: Props)
   }, [])
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-background">
+    <div className="h-screen flex flex-col overflow-hidden bg-background print:h-auto print:overflow-visible print:block">
       <Topbar
         currentScreen={currentScreen}
         onNavigate={onNavigate}
@@ -292,7 +292,7 @@ export default function AppShell({ currentScreen, onNavigate, onLogout }: Props)
         onLogout={onLogout}
       />
 
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-hidden print:overflow-visible print:block">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentScreen}
@@ -300,7 +300,7 @@ export default function AppShell({ currentScreen, onNavigate, onLogout }: Props)
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.18 }}
-            className="h-full"
+            className="h-full print:h-auto print:overflow-visible print:block"
           >
             <ScreenRenderer screen={currentScreen} onNavigate={onNavigate} />
           </motion.div>
