@@ -43,74 +43,99 @@ const FEATURES = [
 
 export default function AboutPage({ onNavigate }: Props) {
   return (
-    <div className="h-full overflow-y-auto bg-[#f8f9fc]">
+    <div className="h-full overflow-y-auto bg-gray-50/50 selection:bg-indigo-500/30">
       {/* Hero */}
-      <div className="relative bg-gradient-to-br from-[#1a73e8] via-indigo-700 to-violet-700 px-6 sm:px-12 pt-12 pb-20 overflow-hidden">
-        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/5 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-white/5 blur-2xl" />
+      <div className="relative bg-[#0A0F2C] px-6 sm:px-12 pt-16 pb-32 overflow-hidden">
+        {/* Dynamic mesh gradient background */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-[20%] -left-[10%] w-[70%] h-[70%] rounded-full bg-indigo-600/20 blur-[120px] mix-blend-screen" />
+          <div className="absolute top-[20%] -right-[20%] w-[60%] h-[80%] rounded-full bg-violet-600/20 blur-[130px] mix-blend-screen" />
+          <div className="absolute -bottom-[20%] left-[20%] w-[50%] h-[50%] rounded-full bg-blue-500/20 blur-[100px] mix-blend-screen" />
+          
+          {/* Subtle grid overlay */}
+          <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-[0.03]" />
+        </div>
 
         <button
           onClick={() => onNavigate('chat')}
-          className="relative flex items-center gap-2 text-white/70 hover:text-white text-sm mb-8 transition-colors"
+          className="relative z-10 flex items-center gap-2 text-white/60 hover:text-white text-sm mb-10 transition-colors group"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           Back to Assistant
         </button>
 
-        <div className="relative max-w-3xl">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-16 h-16 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center">
-              <span className="text-white font-black text-xl tracking-wide">HTE</span>
+        <div className="relative z-10 max-w-4xl">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-5 mb-8"
+          >
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 shadow-[0_0_40px_rgba(79,70,229,0.3)] backdrop-blur-xl flex items-center justify-center">
+              <span className="text-white font-black text-2xl tracking-wide">HTE</span>
             </div>
             <div>
-              <p className="text-white/60 text-xs font-bold uppercase tracking-widest">Maharashtra Government</p>
-              <h1 className="text-white font-black text-3xl sm:text-4xl leading-tight">HTE KnowledgeBase AI</h1>
+              <p className="text-indigo-400 text-xs font-bold uppercase tracking-[0.2em] mb-1.5">Government of Maharashtra</p>
+              <h1 className="text-white font-black text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-tight">
+                HTE KnowledgeBase <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">AI</span>
+              </h1>
             </div>
-          </div>
-          <p className="text-white/80 text-lg leading-relaxed max-w-xl">
+          </motion.div>
+          <motion.p 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="text-white/70 text-lg sm:text-xl leading-relaxed max-w-2xl font-light"
+          >
             An AI-powered policy intelligence platform for the Higher & Technical Education Department — instant, grounded answers from official Government Resolutions.
-          </p>
+          </motion.p>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 sm:px-10 -mt-8 pb-16 space-y-10">
+      <div className="relative max-w-6xl mx-auto px-6 sm:px-10 -mt-20 pb-20 space-y-8 z-20">
 
         {/* Mission card */}
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8"
+          transition={{ delay: 0.2 }}
+          className="bg-white/70 backdrop-blur-xl rounded-[2rem] border border-white/50 shadow-xl shadow-gray-200/40 p-8 sm:p-10"
         >
-          <h2 className="text-lg font-bold text-gray-900 mb-3">Our Mission</h2>
-          <p className="text-gray-600 leading-relaxed">
-            Maharashtra's Higher & Technical Education department administers thousands of Government Resolutions, circulars, and policy orders. Officers, faculty, institutions, and students waste countless hours manually searching through stacks of PDFs to find a single eligibility criterion or deadline.
-          </p>
-          <p className="text-gray-600 leading-relaxed mt-3">
-            <strong className="text-gray-800">HTE KnowledgeBase</strong> changes that entirely. Using a state-of-the-art Retrieval-Augmented Generation pipeline, anyone can ask natural-language questions — in English or Marathi — and receive precise, source-cited answers grounded exclusively in official government documents, in seconds.
-          </p>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-indigo-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Our Mission</h2>
+          </div>
+          <div className="prose prose-lg prose-indigo max-w-none text-gray-600">
+            <p>
+              Maharashtra's Higher & Technical Education department administers thousands of Government Resolutions, circulars, and policy orders. Officers, faculty, institutions, and students waste countless hours manually searching through stacks of PDFs to find a single eligibility criterion or deadline.
+            </p>
+            <p>
+              <strong className="text-gray-900 font-semibold">HTE KnowledgeBase</strong> changes that entirely. Using a state-of-the-art Retrieval-Augmented Generation pipeline, anyone can ask natural-language questions — in English or Marathi — and receive precise, source-cited answers grounded exclusively in official government documents, in seconds.
+            </p>
+          </div>
         </motion.div>
 
         {/* Feature highlights */}
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.08 }}
+          transition={{ delay: 0.3 }}
         >
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Key Capabilities</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <h2 className="text-xl font-bold text-gray-900 mb-6 tracking-tight">Key Capabilities</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {FEATURES.map((f, i) => (
               <motion.div
                 key={f.title}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + i * 0.05 }}
-                className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow"
+                whileHover={{ y: -4, scale: 1.01 }}
+                transition={{ type: "spring", stiffness: 300 }}
+                className="bg-white rounded-2xl border border-gray-100/80 shadow-lg shadow-gray-200/20 p-6 flex flex-col group"
               >
-                <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center mb-3">
-                  <f.icon className="w-5 h-5 text-indigo-600" />
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100/50 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
+                  <f.icon className="w-6 h-6 text-indigo-600" />
                 </div>
-                <h3 className="font-semibold text-gray-900 text-sm mb-1">{f.title}</h3>
-                <p className="text-gray-500 text-xs leading-relaxed">{f.desc}</p>
+                <h3 className="font-bold text-gray-900 text-[15px] mb-2">{f.title}</h3>
+                <p className="text-gray-500 text-[13px] leading-relaxed flex-1">{f.desc}</p>
               </motion.div>
             ))}
           </div>
@@ -118,28 +143,29 @@ export default function AboutPage({ onNavigate }: Props) {
 
         {/* Tech stack */}
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.14 }}
+          transition={{ delay: 0.4 }}
         >
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Technology Stack</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <h2 className="text-xl font-bold text-gray-900 mb-6 tracking-tight">Enterprise Architecture</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {TECH_STACK.map((block, i) => (
               <motion.div
                 key={block.category}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 + i * 0.05 }}
-                className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5"
+                whileHover={{ y: -2 }}
+                className="bg-white rounded-2xl border border-gray-100/80 shadow-lg shadow-gray-200/20 p-6 relative overflow-hidden"
               >
-                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold mb-3 ${block.color}`}>
+                <div className="absolute top-0 right-0 p-4 opacity-5">
+                  <block.icon className="w-24 h-24" />
+                </div>
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[11px] uppercase tracking-wider font-bold mb-5 ${block.color}`}>
                   <block.icon className="w-3.5 h-3.5" />
                   {block.category}
                 </div>
-                <ul className="space-y-1.5">
+                <ul className="space-y-2.5 relative z-10">
                   {block.items.map((item) => (
-                    <li key={item} className="flex items-start gap-2 text-xs text-gray-600">
-                      <CheckCircle className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" />
+                    <li key={item} className="flex items-start gap-2.5 text-[13px] text-gray-600 font-medium">
+                      <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
                       {item}
                     </li>
                   ))}
@@ -149,78 +175,87 @@ export default function AboutPage({ onNavigate }: Props) {
           </div>
         </motion.div>
 
-        {/* Data Sources */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8"
-        >
-          <h2 className="text-lg font-bold text-gray-900 mb-5">Data Sources</h2>
-          <div className="space-y-3 mb-5">
-            {DATA_SOURCES.map((s) => (
-              <div key={s.name} className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100">
-                <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
-                  <s.icon className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-900 text-sm">{s.name}</p>
-                  <p className="text-gray-500 text-xs mt-0.5">{s.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-start gap-3">
-            <Lock className="w-4 h-4 text-indigo-600 mt-0.5 shrink-0" />
-            <p className="text-indigo-700 text-sm leading-relaxed">
-              <strong>Privacy First:</strong> All data is indexed and stored locally in Qdrant on-premise. No document content or user query data is ever sent to external services. The only external call is to Google Gemini for LLM generation.
-            </p>
-          </div>
-        </motion.div>
-
-        {/* Team */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.24 }}
-          className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8"
-        >
-          <h2 className="text-lg font-bold text-gray-900 mb-5">Team & Credits</h2>
-          <div className="space-y-3">
-            {TEAM.map((m) => (
-              <div key={m.name} className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shrink-0">
-                  <span className="text-white font-bold text-sm">{m.initials}</span>
-                </div>
-                <div>
-                  <p className="font-semibold text-gray-900">{m.name}</p>
-                  <p className="text-gray-500 text-sm">{m.role}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.28 }}
-          className="flex flex-col sm:flex-row gap-3 pb-4"
-        >
-          <button
-            onClick={() => onNavigate('chat')}
-            className="flex-1 h-12 rounded-2xl bg-[#1a73e8] text-white font-semibold hover:bg-indigo-700 transition-colors shadow-sm"
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Data Sources */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="bg-white rounded-3xl border border-gray-100 shadow-lg shadow-gray-200/20 p-8 flex flex-col"
           >
-            Open AI Assistant
-          </button>
-          <button
-            onClick={() => onNavigate('reports')}
-            className="flex-1 h-12 rounded-2xl border border-gray-200 text-gray-700 font-semibold hover:border-indigo-300 hover:text-indigo-700 transition-colors"
-          >
-            Generate a Report
-          </button>
-        </motion.div>
+            <h2 className="text-xl font-bold text-gray-900 mb-6 tracking-tight">Verified Data Sources</h2>
+            <div className="space-y-4 mb-8 flex-1">
+              {DATA_SOURCES.map((s) => (
+                <div key={s.name} className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50/80 border border-gray-100 hover:bg-indigo-50/50 hover:border-indigo-100 transition-colors group">
+                  <div className="w-10 h-10 rounded-xl bg-white border border-gray-100 shadow-sm flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                    <s.icon className="w-5 h-5 text-indigo-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900 text-sm mb-1">{s.name}</p>
+                    <p className="text-gray-500 text-xs leading-relaxed">{s.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100/50 flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+                <Lock className="w-4 h-4 text-indigo-600" />
+              </div>
+              <p className="text-indigo-900/80 text-sm leading-relaxed font-medium pt-1.5">
+                All data is indexed and stored locally in Qdrant on-premise. No document content leaves your infrastructure.
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Team */}
+          <div className="space-y-8 flex flex-col">
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="bg-white rounded-3xl border border-gray-100 shadow-lg shadow-gray-200/20 p-8 flex-1"
+            >
+              <h2 className="text-xl font-bold text-gray-900 mb-6 tracking-tight">Project Collaboration</h2>
+              <div className="space-y-4">
+                {TEAM.map((m, i) => (
+                  <div key={m.name} className="flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${
+                      i === 0 ? 'from-indigo-500 to-violet-600' : 
+                      i === 1 ? 'from-emerald-400 to-teal-500' : 'from-orange-400 to-amber-500'
+                    } flex items-center justify-center shrink-0 shadow-inner`}>
+                      <span className="text-white font-bold text-[15px]">{m.initials}</span>
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900 text-[15px] mb-0.5">{m.name}</p>
+                      <p className="text-gray-500 text-xs font-medium">{m.role}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* CTA */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7 }}
+              className="flex gap-4"
+            >
+              <button
+                onClick={() => onNavigate('chat')}
+                className="flex-1 h-14 rounded-2xl bg-[#0A0F2C] text-white font-semibold hover:bg-indigo-600 transition-colors shadow-xl shadow-indigo-600/20"
+              >
+                Open Assistant
+              </button>
+              <button
+                onClick={() => onNavigate('reports')}
+                className="flex-1 h-14 rounded-2xl border-2 border-gray-200 text-gray-700 font-semibold hover:border-[#0A0F2C] hover:text-[#0A0F2C] transition-colors"
+              >
+                Generate Report
+              </button>
+            </motion.div>
+          </div>
+        </div>
       </div>
     </div>
   )

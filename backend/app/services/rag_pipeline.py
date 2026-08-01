@@ -23,9 +23,15 @@ import logging
 import time
 import uuid
 import asyncio
+import re
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 from typing import Any
+
+try:
+    from sentence_transformers import CrossEncoder
+except ImportError:
+    CrossEncoder = None
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,6 +45,14 @@ from app.services import llm_service, retrieval_service
 from app.services.retrieval_service import SearchResult
 
 logger = logging.getLogger(__name__)
+
+_cross_encoder = None
+def _get_cross_encoder():
+    global _cross_encoder
+    if _cross_encoder is None and CrossEncoder is not None:
+        logger.info("Loading CrossEncoder model...")
+        _cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+    return _cross_encoder
 
 # ── Confidence-level derivation ────────────────────────────────────────────────
 # Converts Supermemory's 0.0–1.0 float relevance score to the UI badge enum.
@@ -172,35 +186,78 @@ async def run_rag_pipeline(
 
         history_messages = await fetch_history()
             
-        # ── Step 3a: Decompose Query and Extract Filters ──────────────
+        # ── Step 3a: Extract Filters and decide on simple vs complex flow ──────────────
         filters = await llm_service.extract_search_filters(message_text)
-        subqueries = await llm_service.decompose_query(message_text)
         
-        # ── Step 3b: Supermemory search using HyDE per subquery ──────────────
-        sm_start = time.monotonic()
+        # Heuristic for simple queries: short or contains specific exact match markers
+        is_short = len(message_text.split()) < 6
+        has_exact_marker = bool(re.search(r'\b(gr|date|20\d\d)\b', message_text, re.IGNORECASE))
+        
         all_results = []
         seen_snippets = set()
+        sm_start = time.monotonic()
         
-        for subquery in subqueries:
-            # Generate hypothetical answer
-            hyde_doc = await llm_service.generate_hypothetical_answer(subquery)
-            enriched_query = f"{subquery}\n\n{hyde_doc}"
-            
-            # Search Qdrant with filters
+        if is_short or has_exact_marker:
+            # Skip HyDE & Decomposition for exact matches / short queries
+            logger.info(f"Using direct hybrid search for simple query: '{message_text}'")
             sub_results = await retrieval_service.search(
-                query=enriched_query,
+                query=message_text,
                 container_tags=container_tags,
                 filters=filters,
+                limit=20,
             )
-            
-            # Deduplicate across subqueries
             for res in sub_results:
                 if res.snippet not in seen_snippets:
                     seen_snippets.add(res.snippet)
                     all_results.append(res)
+        else:
+            # Full Decomp + HyDE pipeline
+            logger.info("Using full decomp + HyDE pipeline")
+            subqueries = await llm_service.decompose_query(message_text)
+            
+            for subquery in subqueries:
+                hyde_doc = await llm_service.generate_hypothetical_answer(subquery)
+                enriched_query = f"{subquery}\n\n{hyde_doc}"
+                
+                sub_results = await retrieval_service.search(
+                    query=enriched_query,
+                    container_tags=container_tags,
+                    filters=filters,
+                    limit=10,
+                )
+                
+                for res in sub_results:
+                    if res.snippet not in seen_snippets:
+                        seen_snippets.add(res.snippet)
+                        all_results.append(res)
+                        
+        # ── Cross-Encoder Reranking ───────────────────────────────────────────
+        # Cap candidates to 15-20 max for reranking speed
+        candidates = all_results[:20]
+        
+        if candidates and CrossEncoder is not None:
+            reranker = _get_cross_encoder()
+            if reranker:
+                # Build pairs and run one batched prediction
+                pairs = [[message_text, c.snippet] for c in candidates]
+                
+                rerank_start = time.perf_counter()
+                # predict() accepts a list of pairs and runs in C++/CUDA batched mode
+                scores = await asyncio.to_thread(reranker.predict, pairs)
+                rerank_time = time.perf_counter() - rerank_start
+                logger.info(f"Cross-encoder reranked {len(candidates)} pairs in {rerank_time:.4f}s")
+                
+                # Assign new scores
+                for c, s in zip(candidates, scores):
+                    c.relevance_score = float(s)
                     
-        # Sort combined results by relevance score (highest first)
-        search_results = sorted(all_results, key=lambda r: r.relevance_score, reverse=True)[:settings.max_context_results]
+                # Re-sort by cross-encoder score
+                candidates.sort(key=lambda x: x.relevance_score, reverse=True)
+        else:
+            # Fallback to pure RRF sorting if no reranker available
+            candidates.sort(key=lambda x: x.relevance_score, reverse=True)
+
+        search_results = candidates[:settings.max_context_results]
         
         sm_latency_ms = (time.monotonic() - sm_start) * 1000
 

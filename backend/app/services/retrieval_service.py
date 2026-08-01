@@ -262,9 +262,14 @@ async def search(
                 else:
                     qdrant_filter.must.append(FieldCondition(key=k, match=MatchValue(value=v)))
 
-        query_vector = await _get_embedding(query)
+        # Parallelize dense and sparse embedding generation
         sparse_model = _get_sparse_model()
-        sparse_query = list(sparse_model.embed([query]))[0]
+        
+        query_vector, sparse_query_list = await asyncio.gather(
+            _get_embedding(query),
+            asyncio.to_thread(lambda: list(sparse_model.embed([query])))
+        )
+        sparse_query = sparse_query_list[0]
 
         prefetch = [
             Prefetch(
@@ -284,6 +289,8 @@ async def search(
             )
         ]
 
+        retrieval_start = time.perf_counter()
+        
         search_results = await client.query_points(
             collection_name=COLLECTION_NAME,
             prefetch=prefetch,
@@ -291,6 +298,9 @@ async def search(
             limit=effective_limit,
             with_payload=True
         )
+        
+        retrieval_time = time.perf_counter() - retrieval_start
+        logger.info(f"Qdrant retrieval took {retrieval_time:.4f}s for query: {query[:40]}")
         
         search_results = search_results.points
 

@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   FileText, Download, Sparkles, ArrowLeft, Loader2,
   BookOpen, Calendar, Building2, Tag, Search, CheckCircle2,
-  AlertCircle, ChevronDown, Plus, Trash2, FileDown, BarChart2
+  AlertCircle, ChevronDown, Plus, Trash2, FileDown, BarChart2,
+  Layers, ShieldCheck
 } from 'lucide-react'
 
 interface Props {
@@ -295,19 +296,21 @@ ${langNote}`
                 <button
                   key={rt.id}
                   onClick={() => setSelectedType(rt.id)}
-                  className={`w-full text-left p-3 rounded-xl border transition-all ${
+                  className={`w-full text-left p-3.5 rounded-2xl border transition-all duration-300 group ${
                     selectedType === rt.id
-                      ? 'border-indigo-300 bg-indigo-50 shadow-sm'
-                      : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50'
+                      ? 'border-indigo-400 bg-indigo-50/50 shadow-md shadow-indigo-100/50 ring-1 ring-indigo-400/20'
+                      : 'border-gray-100 hover:border-gray-200 hover:bg-gray-50/80 hover:shadow-sm'
                   }`}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center border ${rt.color}`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center border transition-transform duration-300 ${
+                      selectedType === rt.id ? 'scale-110 ' + rt.color : 'border-gray-200 bg-white text-gray-400 group-hover:text-gray-600 group-hover:border-gray-300'
+                    }`}>
                       <rt.icon className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className={`text-[13px] font-semibold ${selectedType === rt.id ? 'text-indigo-700' : 'text-gray-800'}`}>{rt.label}</p>
-                      <p className="text-[11px] text-gray-400 leading-tight">{rt.desc}</p>
+                      <p className={`text-[13px] font-bold tracking-tight ${selectedType === rt.id ? 'text-indigo-900' : 'text-gray-700 group-hover:text-gray-900'}`}>{rt.label}</p>
+                      <p className={`text-[11px] leading-relaxed mt-0.5 ${selectedType === rt.id ? 'text-indigo-700/80' : 'text-gray-400'}`}>{rt.desc}</p>
                     </div>
                   </div>
                 </button>
@@ -445,17 +448,21 @@ ${langNote}`
           <button
             onClick={handleGenerate}
             disabled={generating}
-            className="w-full h-12 rounded-xl bg-indigo-600 text-white font-semibold text-sm flex items-center justify-center gap-2.5 hover:bg-indigo-700 transition-colors disabled:opacity-60 shadow-sm"
+            className="relative w-full h-14 rounded-2xl bg-[#0A0F2C] text-white font-bold text-sm flex items-center justify-center gap-2.5 hover:bg-indigo-700 transition-all duration-300 disabled:opacity-70 disabled:hover:bg-[#0A0F2C] overflow-hidden shadow-xl shadow-indigo-900/20 group"
           >
+            {generating && (
+              <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20 animate-pulse" />
+            )}
+            
             {generating ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Generating report…
+                <Loader2 className="w-5 h-5 animate-spin relative z-10" />
+                <span className="relative z-10 tracking-wide">Generating Report...</span>
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4" />
-                Generate Report
+                <Sparkles className="w-5 h-5 relative z-10 group-hover:scale-110 transition-transform" />
+                <span className="relative z-10 tracking-wide">Generate AI Report</span>
               </>
             )}
           </button>
@@ -463,7 +470,12 @@ ${langNote}`
       </div>
 
       {/* Right output panel */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-gradient-to-br from-[#f8f9fc] to-[#f1f3f9] relative">
+        {/* Subtle mesh in background of output area */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-40">
+          <div className="absolute -top-[20%] -right-[10%] w-[50%] h-[50%] rounded-full bg-indigo-200/50 blur-[100px]" />
+          <div className="absolute top-[40%] -left-[10%] w-[40%] h-[40%] rounded-full bg-blue-200/50 blur-[100px]" />
+        </div>
         {/* Output toolbar */}
         <div className="flex items-center justify-between px-6 h-14 border-b border-gray-200 bg-white shrink-0">
           <div className="flex items-center gap-2">
@@ -508,28 +520,32 @@ ${langNote}`
             {!reportContent && !generating && (
               <motion.div
                 key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="h-full flex flex-col items-center justify-center text-center"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="h-full flex flex-col items-center justify-center text-center relative z-10"
               >
-                <div className="w-20 h-20 rounded-3xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mb-5">
-                  <FileText className="w-10 h-10 text-indigo-300" />
+                <div className="w-24 h-24 rounded-[2rem] bg-white border border-gray-100 shadow-2xl shadow-indigo-100/50 flex items-center justify-center mb-6 relative group">
+                  <div className="absolute inset-0 rounded-[2rem] bg-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <FileText className="w-10 h-10 text-indigo-300 relative z-10 transition-transform duration-500 group-hover:scale-110" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">No Report Generated Yet</h3>
-                <p className="text-gray-400 text-sm max-w-xs">
-                  Configure the report type and topic in the left panel, then click <strong>Generate Report</strong>.
+                <h3 className="text-xl font-bold text-gray-900 mb-2 tracking-tight">No Report Generated Yet</h3>
+                <p className="text-gray-500 text-sm max-w-sm leading-relaxed">
+                  Configure the report parameters in the left panel, then click <strong>Generate AI Report</strong> to begin.
                 </p>
-                <div className="mt-6 grid grid-cols-2 gap-2 max-w-sm">
-                  {REPORT_TYPES.map((rt) => (
-                    <button
+                <div className="mt-10 grid grid-cols-2 gap-3 max-w-lg w-full px-6">
+                  {REPORT_TYPES.map((rt, i) => (
+                    <motion.button
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.1 }}
                       key={rt.id}
                       onClick={() => { setSelectedType(rt.id) }}
-                      className={`p-3 rounded-xl border text-left transition-all hover:shadow-sm ${rt.color}`}
+                      className={`p-4 rounded-2xl bg-white border border-gray-100/50 text-left transition-all hover:shadow-lg hover:-translate-y-1 hover:border-indigo-100 ${rt.color.replace('bg-', 'hover:bg-')}`}
                     >
-                      <rt.icon className="w-4 h-4 mb-1.5" />
-                      <p className="text-[11px] font-semibold">{rt.label}</p>
-                    </button>
+                      <rt.icon className="w-5 h-5 mb-2.5 opacity-80" />
+                      <p className="text-[12px] font-bold text-gray-800">{rt.label}</p>
+                    </motion.button>
                   ))}
                 </div>
               </motion.div>
@@ -538,28 +554,33 @@ ${langNote}`
             {(reportContent || generating) && (
               <motion.div
                 key="report"
-                initial={{ opacity: 0, y: 8 }}
+                initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="max-w-3xl mx-auto"
+                className="max-w-4xl mx-auto relative z-10 pb-10"
               >
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
+                <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] border border-white/60 shadow-2xl shadow-indigo-900/5 overflow-hidden">
                   {/* Watermark header */}
-                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center">
-                        <span className="text-white font-bold text-xs">HTE</span>
+                  <div className="flex items-center justify-between p-8 border-b border-gray-100 bg-gradient-to-r from-gray-50/50 to-white/50">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-inner">
+                        <span className="text-white font-black text-sm tracking-wider">HTE</span>
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Maharashtra Government</p>
-                        <p className="text-sm font-semibold text-gray-800">HTE KnowledgeBase AI — Generated Report</p>
+                        <p className="text-[10px] font-bold text-indigo-600/80 uppercase tracking-widest mb-0.5">Government of Maharashtra</p>
+                        <p className="text-base font-bold text-gray-900">KnowledgeBase AI Official Report</p>
                       </div>
                     </div>
-                    <span className="text-xs text-gray-400">
-                      {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    </span>
+                    <div className="text-right">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-100 mb-1">
+                        <ShieldCheck className="w-3.5 h-3.5" /> Verified Context
+                      </span>
+                      <p className="text-xs text-gray-400 font-medium">
+                        {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
                   </div>
 
-                  <div className="ai-prose text-gray-800 text-sm leading-relaxed whitespace-pre-wrap font-mono">
+                  <div className="p-10 ai-prose text-gray-800 text-[15px] leading-relaxed whitespace-pre-wrap">
                     {reportContent}
                     {generating && (
                       <span className="inline-block w-0.5 h-4 bg-indigo-500 ml-0.5 animate-pulse" />

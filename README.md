@@ -118,6 +118,16 @@ sequenceDiagram
 
 ---
 
+## ⚡ Performance Optimizations
+
+To ensure sub-second retrieval times, the RAG pipeline implements several advanced optimizations:
+- **Parallel Retrieval**: Dense (Gemini) and Sparse (BM25 FastEmbed) embeddings are generated concurrently using `asyncio.gather()`, safely offloading CPU-bound tasks.
+- **Batched Cross-Encoder Reranking**: We use `ms-marco-MiniLM-L-6-v2` to rerank the top 20 candidates. The inputs are batched into a single C++/CUDA-optimized `.predict()` call, avoiding slow loops.
+- **HyDE Short-Circuiting**: Simple queries (e.g. `< 6` words, or exact GR numbers) bypass the expensive LLM decomposition and HyDE generation steps entirely, dropping straight into the hybrid vector search for lightning-fast lookups.
+- **Telemetry**: Full `time.perf_counter()` instrumentation tracks the exact latency of Qdrant and the Cross-Encoder per query.
+
+---
+
 ## 💻 Local Development Setup
 
 Follow these steps to run the HTE KnowledgeBase AI on your local machine.
