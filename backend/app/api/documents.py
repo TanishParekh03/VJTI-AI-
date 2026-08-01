@@ -36,6 +36,9 @@ ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".txt", ".md"}
 MAX_FILE_SIZE_MB = 50
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
+UPLOADS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+
 
 def _ext_to_file_type(filename: str) -> str:
     ext = os.path.splitext(filename)[1].lower()
@@ -266,6 +269,12 @@ async def upload_document(
     )
     db.add(doc)
 
+    # Save original file to disk
+    file_ext = os.path.splitext(file.filename)[1].lower() if file.filename else ""
+    file_path = os.path.join(UPLOADS_DIR, f"{doc_id}{file_ext}")
+    with open(file_path, "wb") as f:
+        f.write(file_bytes)
+
     # Log analytics event
     event = AnalyticsEvent(
         user_id=user.id,
@@ -380,6 +389,35 @@ async def get_document_status(
         status=doc.status,
         supermemory_document_id=doc.supermemory_document_id,
         ingestion_error=doc.ingestion_error,
+    )
+
+
+@router.get("/{doc_id}/download")
+async def download_document(
+    doc_id: str,
+    user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Download the original document file."""
+    result = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    # Find the file in the uploads directory matching the doc_id and any extension
+    import glob
+    matching_files = glob.glob(os.path.join(UPLOADS_DIR, f"{doc_id}.*"))
+    
+    if not matching_files:
+        raise HTTPException(status_code=404, detail="Document file not found on disk")
+        
+    file_path = matching_files[0]
+    
+    from fastapi.responses import FileResponse
+    return FileResponse(
+        path=file_path,
+        filename=doc.title + os.path.splitext(file_path)[1],
+        content_disposition_type="inline"  # Opens in browser instead of forcing download
     )
 
 

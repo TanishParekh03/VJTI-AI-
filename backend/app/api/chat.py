@@ -96,6 +96,7 @@ async def get_conversation_history(
 ) -> ConversationRead:
     """Return a full conversation thread with messages and source citations."""
     from datetime import datetime, timezone
+    from sqlalchemy.orm import selectinload
 
     if conversation_id.startswith("c-"):
         return ConversationRead(
@@ -110,45 +111,20 @@ async def get_conversation_history(
         )
 
     result = await db.execute(
-        select(Conversation).where(
+        select(Conversation)
+        .where(
             Conversation.id == conversation_id,
             Conversation.user_id == user.id,
+        )
+        .options(
+            selectinload(Conversation.messages).selectinload(Message.sources)
         )
     )
     conv = result.scalar_one_or_none()
     if not conv:
-        return ConversationRead(
-            id=conversation_id,
-            user_id=user.id,
-            title="New conversation",
-            preview="",
-            message_count=0,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
-            messages=[],
-        )
+        raise HTTPException(status_code=404, detail="Conversation not found")
 
-    # Eagerly load messages with sources
-    msg_result = await db.execute(
-        select(Message)
-        .where(Message.conversation_id == conversation_id)
-        .order_by(Message.created_at)
-    )
-    messages = msg_result.scalars().all()
-
-    # Load sources for assistant messages
-    from sqlalchemy.orm import selectinload
-    msg_result2 = await db.execute(
-        select(Message)
-        .where(Message.conversation_id == conversation_id)
-        .options(selectinload(Message.sources))
-        .order_by(Message.created_at)
-    )
-    messages_with_sources = msg_result2.scalars().all()
-
-    conv_data = ConversationRead.model_validate(conv)
-    conv_data.messages = [MessageRead.model_validate(m) for m in messages_with_sources]
-    return conv_data
+    return ConversationRead.model_validate(conv)
 
 
 @router.delete("/sessions/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)

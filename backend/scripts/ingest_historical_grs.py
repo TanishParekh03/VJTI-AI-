@@ -63,6 +63,34 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
 
 async def process_pdf(client: httpx.AsyncClient, url: str) -> None:
     filename = url.split("/")[-1]
+    title = filename.replace(".pdf", "").replace("-", " ").replace("_", " ")
+
+    # Check if this document already exists in Postgres
+    from app.db.session import AsyncSessionLocal
+    from app.models.document import Document
+    from sqlalchemy import select
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(select(Document).where(Document.title == title))
+        existing_doc = result.scalars().first()
+        if existing_doc:
+            logger.info(f"Document {filename} already exists. Skipping ingestion.")
+            # Check if file exists on disk
+            import os
+            uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+            os.makedirs(uploads_dir, exist_ok=True)
+            file_path = os.path.join(uploads_dir, f"{existing_doc.id}.pdf")
+            if not os.path.exists(file_path):
+                logger.info(f"Downloading missing PDF for {filename}...")
+                try:
+                    response = await client.get(url, timeout=60.0)
+                    response.raise_for_status()
+                    with open(file_path, "wb") as f:
+                        f.write(response.content)
+                    logger.info(f"Saved missing PDF for {filename}")
+                except Exception as e:
+                    logger.error(f"Failed to download missing PDF {url}: {e}")
+            return
+
     # We generate a real UUID for Postgres and Qdrant
     doc_id = str(uuid.uuid4())
     
@@ -77,6 +105,14 @@ async def process_pdf(client: httpx.AsyncClient, url: str) -> None:
     pdf_bytes = response.content
     logger.info(f"Extracting text from {filename}...")
     
+    # Save the original PDF to backend/uploads
+    import os
+    uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+    file_path = os.path.join(uploads_dir, f"{doc_id}.pdf")
+    with open(file_path, "wb") as f:
+        f.write(pdf_bytes)
+    
     text = extract_text_from_pdf(pdf_bytes)
     
     if not text:
@@ -86,6 +122,16 @@ async def process_pdf(client: httpx.AsyncClient, url: str) -> None:
     logger.info(f"Ingesting {filename} into Qdrant...")
     
     title = filename.replace(".pdf", "").replace("-", " ").replace("_", " ")
+    
+    # Generate AI summary and tags
+    from app.services import llm_service
+    ai_summary = "Automatically ingested historical Government Resolution."
+    ai_tags = ["historical", "gr", "public"]
+    try:
+        ai_summary, ai_tags = await llm_service.generate_summary_and_tags(text, title=title)
+        logger.info(f"Generated AI summary and tags for {filename}")
+    except Exception as e:
+        logger.warning(f"Failed to generate AI summary for {filename}: {e}")
     metadata = {
         "source_url": url,
         "doc_type": "PDF",
@@ -115,8 +161,8 @@ async def process_pdf(client: httpx.AsyncClient, url: str) -> None:
                 department="hte",
                 file_type="PDF",
                 file_size=f"{len(pdf_bytes) / 1024 / 1024:.1f} MB",
-                summary="Automatically ingested historical Government Resolution.",
-                tags=json.dumps(["historical", "gr", "public"]),
+                summary=ai_summary,
+                tags=json.dumps(ai_tags),
                 visibility="public",
                 status="indexed",
                 supermemory_document_id=doc_id

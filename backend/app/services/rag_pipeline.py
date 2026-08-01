@@ -247,6 +247,7 @@ async def run_rag_pipeline(
                 "page": r.page,
                 "section": r.section,
                 "snippet": r.snippet[:300],  # truncate for SSE payload size
+                "document_id": r.supermemory_doc_id,
             }
             for r in above_threshold[:settings.max_context_results]
         ]
@@ -300,6 +301,7 @@ async def run_rag_pipeline(
                 section=r.section,
                 snippet=r.snippet,
                 relevance_score=r.relevance_score,
+                document_id=r.supermemory_doc_id,
             )
             db.add(src)
 

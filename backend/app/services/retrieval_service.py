@@ -44,11 +44,18 @@ async def _get_embedding(text: str) -> list[float]:
     """Generate a Gemini vector embedding for the given text."""
     client = _get_genai_client()
     try:
-        response = await client.aio.models.embed_content(
-            model='models/gemini-embedding-001',
-            contents=text
+        import asyncio
+        response = await asyncio.wait_for(
+            client.aio.models.embed_content(
+                model='models/gemini-embedding-001',
+                contents=text
+            ),
+            timeout=15.0
         )
         return response.embeddings[0].values
+    except asyncio.TimeoutError:
+        logger.error("Gemini API timed out during embedding generation.")
+        raise
     except Exception as e:
         logger.error(f"Failed to generate embedding: {e}")
         raise

@@ -261,10 +261,11 @@ export default function ChatScreen() {
               ? m.sources.map((src: any) => ({
                   id: src.id,
                   title: src.title,
-                  type: src.doc_type || 'PDF',
+                  type: src.type || 'PDF',
                   page: src.page ? parseInt(src.page) : undefined,
                   section: src.section,
                   snippet: src.snippet || '',
+                  document_id: src.document_id,
                 }))
               : [],
             timestamp: new Date(m.created_at || Date.now()),
@@ -399,6 +400,7 @@ export default function ChatScreen() {
                   page: s.page ?? '',
                   section: s.section ?? '',
                   snippet: s.snippet ?? '',
+                  document_id: s.document_id,
                 }))
                 const score: number = data.confidence ?? 0
                 finalConfidence = score >= 0.70 ? 'high' : score >= 0.40 ? 'medium' : 'none'

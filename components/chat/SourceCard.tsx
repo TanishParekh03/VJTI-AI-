@@ -64,10 +64,23 @@ export default function SourceCard({ source, index }: Props) {
           <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed italic">
             &ldquo;{source.snippet}&rdquo;
           </p>
-          <button className="mt-2 flex items-center gap-1 text-xs text-primary hover:underline">
-            <ExternalLink className="w-3 h-3" />
-            {t('chat.view_full_document')}
-          </button>
+          {source.document_id ? (
+            <button 
+              onClick={() => {
+                const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
+                window.open(`${API_BASE}/documents/${source.document_id}/download`, '_blank')
+              }}
+              className="mt-2 flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              <ExternalLink className="w-3 h-3" />
+              {t('chat.view_full_document')}
+            </button>
+          ) : (
+            <button className="mt-2 flex items-center gap-1 text-xs text-muted-foreground cursor-not-allowed" title="Document file unavailable">
+              <ExternalLink className="w-3 h-3" />
+              {t('chat.view_full_document')}
+            </button>
+          )}
         </div>
       )}
     </div>
