@@ -11,11 +11,18 @@ import uuid
 import re
 from dataclasses import dataclass
 from typing import Any
+import time
 
 from qdrant_client import AsyncQdrantClient
-from qdrant_client.http.models import Filter, FieldCondition, MatchAny, MatchValue, Distance, VectorParams, PointStruct
+
+from qdrant_client.http.models import (
+    Filter, FieldCondition, MatchAny, MatchValue, 
+    Distance, VectorParams, PointStruct, SparseVectorParams, 
+    SparseIndexParams, Prefetch, FusionQuery, Fusion, SparseVector
+)
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from google import genai
+from fastembed import SparseTextEmbedding
 
 from app.core.config import settings
 
@@ -31,7 +38,7 @@ def _get_client() -> AsyncQdrantClient:
     if _client is None:
         url = getattr(settings, "qdrant_url", "http://localhost:6333")
         api_key = getattr(settings, "qdrant_api_key", None)
-        _client = AsyncQdrantClient(url=url, api_key=api_key if api_key else None)
+        _client = AsyncQdrantClient(url=url, api_key=api_key if api_key else None, timeout=60.0)
     return _client
 
 def _get_genai_client() -> genai.Client:
@@ -40,25 +47,34 @@ def _get_genai_client() -> genai.Client:
         _genai_client = genai.Client(api_key=settings.gemini_api_key)
     return _genai_client
 
-async def _get_embedding(text: str) -> list[float]:
+_sparse_embedding_model: SparseTextEmbedding | None = None
+def _get_sparse_model() -> SparseTextEmbedding:
+    global _sparse_embedding_model
+    if _sparse_embedding_model is None:
+        _sparse_embedding_model = SparseTextEmbedding(model_name="Qdrant/bm25")
+    return _sparse_embedding_model
+
+async def _get_embedding(text: str, retries=3) -> list[float]:
     """Generate a Gemini vector embedding for the given text."""
     client = _get_genai_client()
-    try:
-        import asyncio
-        response = await asyncio.wait_for(
-            client.aio.models.embed_content(
-                model='models/gemini-embedding-001',
-                contents=text
-            ),
-            timeout=15.0
-        )
-        return response.embeddings[0].values
-    except asyncio.TimeoutError:
-        logger.error("Gemini API timed out during embedding generation.")
-        raise
-    except Exception as e:
-        logger.error(f"Failed to generate embedding: {e}")
-        raise
+    for attempt in range(retries):
+        try:
+            import asyncio
+            response = await asyncio.wait_for(
+                client.aio.models.embed_content(
+                    model='models/gemini-embedding-001',
+                    contents=text
+                ),
+                timeout=30.0
+            )
+            return response.embeddings[0].values
+        except Exception as e:
+            if attempt == retries - 1:
+                logger.error(f"Failed to get embeddings after {retries} attempts: {e}")
+                raise
+            logger.warning(f"Embedding error: {e}. Retrying...")
+            await asyncio.sleep(2)
+    raise Exception("Unexpected embedding failure")
 
 _index_created = False
 
@@ -71,7 +87,12 @@ async def _ensure_index(client: AsyncQdrantClient) -> None:
         if not exists:
             await client.create_collection(
                 collection_name=COLLECTION_NAME,
-                vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
+                vectors_config={"": VectorParams(size=3072, distance=Distance.COSINE)},
+                sparse_vectors_config={
+                    "text-sparse": SparseVectorParams(
+                        index=SparseIndexParams(on_disk=False)
+                    )
+                }
             )
             await client.create_payload_index(
                 collection_name=COLLECTION_NAME,
@@ -80,6 +101,17 @@ async def _ensure_index(client: AsyncQdrantClient) -> None:
             )
             _index_created = True
         else:
+            try:
+                await client.update_collection(
+                    collection_name=COLLECTION_NAME,
+                    sparse_vectors_config={
+                        "text-sparse": SparseVectorParams(
+                            index=SparseIndexParams(on_disk=False)
+                        )
+                    }
+                )
+            except Exception as e:
+                logger.info(f"Sparse config might already exist or update failed: {e}")
             _index_created = True
     except Exception as e:
         logger.warning(f"Failed to create collection or index: {e}")
@@ -140,17 +172,28 @@ async def ingest_document(
         await _ensure_index(client)
         content_str = file_bytes.decode("utf-8", errors="ignore") if isinstance(file_bytes, bytes) else str(file_bytes)
         
-        # Chunk the document
+        # Pre-process OCR text: fix fragmented lines (single newlines) but keep paragraphs (double newlines)
+        import re
+        content_str = re.sub(r'(?<!\n)\n(?!\n)', ' ', content_str)
+        # Clean up multiple spaces
+        content_str = re.sub(r' +', ' ', content_str)
+        
+        # Chunk the document with larger sizes and Marathi-aware separators
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
-            separators=["\n\n", "\n", ".", " ", ""]
+            chunk_size=1500,
+            chunk_overlap=300,
+            separators=["\n\n", "।", ".", "\n", " ", ""]
         )
         chunks = splitter.split_text(content_str)
         
+        sparse_model = _get_sparse_model()
+        sparse_embeddings = list(sparse_model.embed(chunks))
+        
         points = []
-        for chunk in chunks:
+        for i, chunk in enumerate(chunks):
             embedding = await _get_embedding(chunk)
+            sparse_vector = sparse_embeddings[i]
+            
             payload = {
                 **metadata,
                 "document_id": doc_id,
@@ -161,15 +204,22 @@ async def ingest_document(
             points.append(
                 PointStruct(
                     id=str(uuid.uuid4()),
-                    vector=embedding,
+                    vector={
+                        "": embedding,
+                        "text-sparse": SparseVector(
+                            indices=sparse_vector.indices.tolist(),
+                            values=sparse_vector.values.tolist()
+                        )
+                    },
                     payload=payload
                 )
             )
             
-        await client.upsert(
-            collection_name=COLLECTION_NAME,
-            points=points
-        )
+        for batch_idx in range(0, len(points), 50):
+            await client.upsert(
+                collection_name=COLLECTION_NAME,
+                points=points[batch_idx:batch_idx+50]
+            )
         
         logger.info(
             "qdrant_ingest_complete",
@@ -213,14 +263,36 @@ async def search(
                     qdrant_filter.must.append(FieldCondition(key=k, match=MatchValue(value=v)))
 
         query_vector = await _get_embedding(query)
+        sparse_model = _get_sparse_model()
+        sparse_query = list(sparse_model.embed([query]))[0]
 
-        search_results = await client.search(
+        prefetch = [
+            Prefetch(
+                query=query_vector,
+                using="",
+                limit=effective_limit * 2,
+                filter=qdrant_filter,
+            ),
+            Prefetch(
+                query=SparseVector(
+                    indices=sparse_query.indices.tolist(),
+                    values=sparse_query.values.tolist()
+                ),
+                using="text-sparse",
+                limit=effective_limit * 2,
+                filter=qdrant_filter,
+            )
+        ]
+
+        search_results = await client.query_points(
             collection_name=COLLECTION_NAME,
-            query_vector=query_vector,
-            query_filter=qdrant_filter,
+            prefetch=prefetch,
+            query=FusionQuery(fusion=Fusion.RRF),
             limit=effective_limit,
             with_payload=True
         )
+        
+        search_results = search_results.points
 
         results: list[SearchResult] = []
         for scored_point in search_results:

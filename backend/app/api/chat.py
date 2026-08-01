@@ -127,7 +127,33 @@ async def get_conversation_history(
     return ConversationRead.model_validate(conv)
 
 
-@router.delete("/sessions/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+@router.post("/messages/{message_id}/feedback", response_model=MessageRead)
+async def update_message_feedback(
+    message_id: str,
+    body: FeedbackRequest,
+    user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> MessageRead:
+    """Provide helpful/not_helpful feedback on an AI response."""
+    result = await db.execute(
+        select(Message)
+        .join(Conversation)
+        .where(Message.id == message_id, Conversation.user_id == user.id)
+    )
+    message = result.scalar_one_or_none()
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    if message.role != "assistant":
+        raise HTTPException(status_code=400, detail="Can only provide feedback on assistant messages")
+
+    message.feedback = body.feedback
+    await db.commit()
+    await db.refresh(message)
+    return MessageRead.model_validate(message)
+
+
+@router.delete("/history/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def delete_conversation(
     conversation_id: str,
     user: CurrentUser,

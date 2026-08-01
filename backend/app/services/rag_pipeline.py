@@ -45,6 +45,13 @@ logger = logging.getLogger(__name__)
 # Must come from retrieval scores — never invented or hardcoded.
 
 def _score_to_confidence(score: float) -> str:
+    # Handle Reciprocal Rank Fusion (RRF) scores which are max ~0.016
+    if score > 0.015:
+        return "high"
+    if score > 0.010:
+        return "medium"
+        
+    # Handle standard cosine similarity scores
     if score >= 0.70:
         return "high"
     if score >= settings.relevance_threshold:
@@ -165,17 +172,45 @@ async def run_rag_pipeline(
 
         history_messages = await fetch_history()
             
-        # ── Step 3b: Supermemory search using query ──────────────
+        # ── Step 3a: Decompose Query and Extract Filters ──────────────
+        filters = await llm_service.extract_search_filters(message_text)
+        subqueries = await llm_service.decompose_query(message_text)
+        
+        # ── Step 3b: Supermemory search using HyDE per subquery ──────────────
         sm_start = time.monotonic()
-        search_results = await retrieval_service.search(
-            query=message_text,
-            container_tags=container_tags,
-        )
+        all_results = []
+        seen_snippets = set()
+        
+        for subquery in subqueries:
+            # Generate hypothetical answer
+            hyde_doc = await llm_service.generate_hypothetical_answer(subquery)
+            enriched_query = f"{subquery}\n\n{hyde_doc}"
+            
+            # Search Qdrant with filters
+            sub_results = await retrieval_service.search(
+                query=enriched_query,
+                container_tags=container_tags,
+                filters=filters,
+            )
+            
+            # Deduplicate across subqueries
+            for res in sub_results:
+                if res.snippet not in seen_snippets:
+                    seen_snippets.add(res.snippet)
+                    all_results.append(res)
+                    
+        # Sort combined results by relevance score (highest first)
+        search_results = sorted(all_results, key=lambda r: r.relevance_score, reverse=True)[:settings.max_context_results]
+        
         sm_latency_ms = (time.monotonic() - sm_start) * 1000
 
         # ── Step 4: No-results branch (HARD RULE — no LLM call here) ──────────
+        # Check if we are using RRF scores (which are tiny, max ~0.016)
+        is_rrf = search_results and search_results[0].relevance_score < 0.1
+        threshold = 0.01 if is_rrf else settings.relevance_threshold
+        
         above_threshold = [
-            r for r in search_results if r.relevance_score >= settings.relevance_threshold
+            r for r in search_results if r.relevance_score >= threshold
         ]
         if not above_threshold:
             logger.info(
@@ -304,6 +339,25 @@ async def run_rag_pipeline(
                 document_id=r.supermemory_doc_id,
             )
             db.add(src)
+
+        # Log detailed audit for explainability
+        from app.models.audit_log import AuditLog
+        audit = AuditLog(
+            user_id=user.id,
+            conversation_id=conv_id,
+            query=message_text,
+            retrieved_context=[{
+                "title": r.title,
+                "snippet": r.snippet[:1000], # truncated to avoid massive logs
+                "relevance_score": r.relevance_score,
+                "document_id": r.supermemory_doc_id
+            } for r in above_threshold[:settings.max_context_results]],
+            llm_prompt=json.dumps(llm_messages, ensure_ascii=False),
+            llm_response=full_answer,
+            relevance_score=top_score,
+            confidence_badge=confidence_label,
+        )
+        db.add(audit)
 
         # Update conversation stats
         await db.execute(

@@ -66,8 +66,35 @@ def _extract_text_from_file_bytes(file_bytes: bytes, filename: str) -> str:
                 if t:
                     text_pages.append(t)
             extracted = "\n\n".join(text_pages)
-            if extracted.strip():
+            
+            if len(extracted.strip()) > 50:
                 return extracted
+                
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info("PyPDF text extraction insufficient. Falling back to OCR.")
+            
+            try:
+                from pdf2image import convert_from_bytes
+                import pytesseract
+                
+                logger.info("Using Tesseract OCR for Multimodal OCR...")
+                images = convert_from_bytes(file_bytes)
+                ocr_text = []
+                for img in images:
+                    # eng+mar is English + Marathi OCR
+                    text = pytesseract.image_to_string(img, lang="eng+mar")
+                    if text:
+                        ocr_text.append(text)
+                
+                extracted_ocr = "\n\n".join(ocr_text)
+                if extracted_ocr and extracted_ocr.strip():
+                    return extracted_ocr
+            except ImportError:
+                logger.warning("pytesseract or pdf2image not installed. Skipping OCR.")
+            except Exception as e:
+                logger.warning(f"Tesseract OCR failed: {e}")
+                
         except Exception:
             pass
 
@@ -474,6 +501,54 @@ async def update_document(
         tags=json.loads(doc.tags) if doc.tags else [],
     )
 
+@router.get("/{doc_id}/checklist")
+async def extract_compliance_checklist(
+    doc_id: str,
+    user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """
+    Extract a structured compliance checklist from a document.
+    Finds actionable items, deadlines, required forms, and eligibility criteria.
+    """
+    result = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
 
+    import glob
+    matching_files = glob.glob(os.path.join(UPLOADS_DIR, f"{doc_id}.*"))
+    if not matching_files:
+        raise HTTPException(status_code=404, detail="Document file not found on disk to extract text")
+    
+    file_path = matching_files[0]
+    with open(file_path, "rb") as f:
+        file_bytes = f.read()
 
+    raw_text = _extract_text_from_file_bytes(file_bytes, os.path.basename(file_path))
+    
+    prompt = f"""You are an expert compliance auditor for the Maharashtra Government Higher & Technical Education Department.
+Analyze the following official document and extract a strict, actionable compliance checklist.
 
+Document Title: {doc.title}
+
+Excerpt:
+{raw_text[:8000]}
+
+Format your response as a clean Markdown checklist.
+Include:
+- 📅 **Deadlines** (if any)
+- 📝 **Required Forms/Documents**
+- ✅ **Eligibility Criteria**
+- ⚙️ **Actionable Next Steps** for officers or institutions
+
+If the document does not contain compliance items, return a polite message stating that this document appears to be purely informational."""
+
+    from app.services import llm_service
+    messages = [{"role": "user", "content": prompt}]
+    
+    checklist_text = ""
+    async for chunk in llm_service.generate(messages, stream=False):
+        checklist_text += chunk
+
+    return {"checklist": checklist_text.strip()}

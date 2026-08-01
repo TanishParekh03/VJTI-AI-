@@ -192,16 +192,46 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
         {/* Actions row */}
         <div className="flex items-center justify-end gap-2 mt-3 ml-1">
           <button
+            onClick={() => handleFeedback('helpful')}
+            disabled={feedbackLoading}
+            className={cn("flex items-center justify-center w-8 h-8 rounded border border-transparent hover:bg-muted/50 hover:border-border transition-all", feedback === 'helpful' ? "text-green-600 bg-green-50 border-green-200" : "text-muted-foreground")}
+            title="Helpful"
+          >
+            <ThumbsUp className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => handleFeedback('not_helpful')}
+            disabled={feedbackLoading}
+            className={cn("flex items-center justify-center w-8 h-8 rounded border border-transparent hover:bg-muted/50 hover:border-border transition-all", feedback === 'not_helpful' ? "text-destructive bg-destructive/10 border-destructive/20" : "text-muted-foreground")}
+            title="Not helpful"
+          >
+            <ThumbsDown className="w-3.5 h-3.5" />
+          </button>
+
+          <div className="w-px h-4 bg-border/60 mx-1" />
+
+          <button
+            onClick={handleSpeak}
+            className="flex items-center justify-center w-8 h-8 rounded border border-transparent hover:bg-muted/50 hover:border-border text-muted-foreground transition-all"
+            title={isSpeaking ? "Stop speaking" : "Read aloud"}
+          >
+            {isSpeaking ? <VolumeX className="w-3.5 h-3.5 text-primary" /> : <Volume2 className="w-3.5 h-3.5" />}
+          </button>
+          
+          <button
+            onClick={handleBookmark}
+            className={cn("flex items-center justify-center w-8 h-8 rounded border border-transparent hover:bg-muted/50 hover:border-border transition-all", bookmarked ? "text-primary" : "text-muted-foreground")}
+            title={bookmarked ? "Remove bookmark" : "Bookmark"}
+          >
+            {bookmarked ? <BookmarkCheck className="w-3.5 h-3.5" /> : <Bookmark className="w-3.5 h-3.5" />}
+          </button>
+
+          <button
             onClick={handleCopy}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-transparent hover:bg-muted/50 hover:border-border text-[13px] font-medium text-muted-foreground transition-all duration-[180ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]"
           >
             <Copy className="w-3.5 h-3.5" />
-            {copied ? 'Copied!' : 'Copy answer'}
-          </button>
-          
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-transparent hover:bg-muted/50 hover:border-border text-[13px] font-medium text-muted-foreground transition-all duration-[180ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]">
-            <FileText className="w-3.5 h-3.5" />
-            View full document
+            {copied ? 'Copied!' : 'Copy'}
           </button>
         </div>
 
