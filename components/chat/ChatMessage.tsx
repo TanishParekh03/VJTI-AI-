@@ -7,7 +7,7 @@ import remarkGfm from 'remark-gfm'
 import {
   Copy, Bookmark, BookmarkCheck, RotateCcw, Download,
   ChevronDown, ChevronUp, CheckCircle2, AlertCircle, HelpCircle,
-  Sparkles, ThumbsUp, ThumbsDown, Volume2, VolumeX
+  Sparkles, ThumbsUp, ThumbsDown, Volume2, VolumeX, FileText
 } from 'lucide-react'
 import type { Message } from '@/lib/mock-data'
 import SourceCard from './SourceCard'
@@ -136,25 +136,30 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex gap-3"
+      className="flex gap-4 mb-8"
     >
       {/* Avatar */}
-      <div className="shrink-0 w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center mt-1">
-        <Sparkles className="w-4 h-4 text-primary" />
+      <div className="shrink-0 w-8 h-8 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center mt-1">
+        <Sparkles className="w-4 h-4 text-[#1a73e8]" />
       </div>
 
       {/* Content bubble */}
       <div className="flex-1 min-w-0">
-        <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 pt-3.5 pb-3 shadow-sm">
-          {/* Confidence */}
-          {message.confidence && (
-            <div className="mb-3">
+        <div className="bg-white border border-[#dadce0] rounded-2xl rounded-tl-sm px-5 pt-4 pb-4 shadow-sm">
+          {/* Top Header */}
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground/80 flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 text-[#1a73e8]" />
+              AI Answer
+            </span>
+            {message.confidence && (
               <ConfidenceBadge level={message.confidence} />
-            </div>
-          )}
+            )}
+          </div>
+          <div className="w-full h-px bg-border/60 mb-4" />
 
           {/* Markdown content */}
-          <div className="ai-prose text-foreground text-sm">
+          <div className="ai-prose text-[#3c4043] text-[15px] font-serif leading-[1.9]">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
           </div>
 
@@ -185,78 +190,19 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
         </div>
 
         {/* Actions row */}
-        <div className="flex items-center gap-1 mt-1.5 ml-1">
-          <button
-            onClick={handleSpeak}
-            className={cn(
-              "flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors",
-              isSpeaking ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            )}
-          >
-            {isSpeaking ? <VolumeX className="w-3 h-3 animate-pulse" /> : <Volume2 className="w-3 h-3" />}
-            {isSpeaking ? 'Stop' : 'Read Aloud'}
-          </button>
+        <div className="flex items-center justify-end gap-2 mt-3 ml-1">
           <button
             onClick={handleCopy}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-transparent hover:bg-muted/50 hover:border-border text-[13px] font-medium text-muted-foreground transition-all duration-[180ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]"
           >
-            <Copy className="w-3 h-3" />
-            {copied ? t('chat.copied') : t('chat.copy')}
+            <Copy className="w-3.5 h-3.5" />
+            {copied ? 'Copied!' : 'Copy answer'}
           </button>
-          <button
-            onClick={handleBookmark}
-            className={cn(
-              'flex items-center gap-1 px-2 py-1 rounded-md text-xs transition-colors',
-              bookmarked
-                ? 'text-primary hover:bg-primary/10'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-            )}
-          >
-            {bookmarked ? <BookmarkCheck className="w-3 h-3" /> : <Bookmark className="w-3 h-3" />}
-            {bookmarked ? t('chat.saved') : t('chat.bookmark')}
+          
+          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-transparent hover:bg-muted/50 hover:border-border text-[13px] font-medium text-muted-foreground transition-all duration-[180ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]">
+            <FileText className="w-3.5 h-3.5" />
+            View full document
           </button>
-          <button
-            onClick={() => onRegenerate?.(message.id)}
-            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          >
-            <RotateCcw className="w-3 h-3" />
-            {t('chat.regenerate')}
-          </button>
-          <button className="flex items-center gap-1 px-2 py-1 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <Download className="w-3 h-3" />
-            {t('chat.export')}
-          </button>
-
-          {/* Feedback divider */}
-          <div className="ml-auto flex items-center gap-0.5">
-            <span className="text-xs text-muted-foreground/50 mr-1 hidden sm:inline">{t('chat.helpful_q')}</span>
-            <button
-              onClick={() => handleFeedback('helpful')}
-              disabled={feedbackLoading}
-              title={t('chat.helpful') || 'Helpful'}
-              className={cn(
-                'w-7 h-7 flex items-center justify-center rounded-md text-xs transition-all',
-                feedback === 'helpful'
-                  ? 'bg-green-100 text-green-600 dark:bg-green-950/50 dark:text-green-400'
-                  : 'text-muted-foreground hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-950/30'
-              )}
-            >
-              <ThumbsUp className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={() => handleFeedback('not_helpful')}
-              disabled={feedbackLoading}
-              title={t('chat.not_helpful') || 'Not helpful'}
-              className={cn(
-                'w-7 h-7 flex items-center justify-center rounded-md text-xs transition-all',
-                feedback === 'not_helpful'
-                  ? 'bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-400'
-                  : 'text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30'
-              )}
-            >
-              <ThumbsDown className="w-3.5 h-3.5" />
-            </button>
-          </div>
         </div>
 
         {/* Follow-up suggestions */}

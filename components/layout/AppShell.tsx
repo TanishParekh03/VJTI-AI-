@@ -49,24 +49,24 @@ function Topbar({
   const { t } = useTranslation()
 
   return (
-    <header className="flex items-center justify-between px-4 h-14 border-b border-border bg-card shrink-0 z-10">
-      <div className="flex items-center gap-3">
+    <header className="relative flex items-center justify-between px-6 h-16 border-b border-[#dadce0] bg-white shrink-0 z-10">
+      <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#1a73e8]" />
+      <div className="flex items-center gap-4">
         {/* Mobile menu button */}
         <button
           onClick={onMobileMenu}
-          className="lg:hidden w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          className="lg:hidden w-8 h-8 flex items-center justify-center rounded-md text-[#5f6368] hover:text-[#202124] hover:bg-gray-100 transition-colors"
         >
-          <Menu className="w-4 h-4" />
+          <Menu className="w-5 h-5" />
         </button>
 
         {/* Logo */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-primary-foreground" />
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-[#1a73e8] flex items-center justify-center shadow-sm">
+            <span className="text-white font-bold text-sm tracking-wide">HTE</span>
           </div>
           <div className="hidden sm:block">
-            <p className="text-sm font-bold text-foreground leading-none">HTE AI</p>
-            <p className="text-[10px] text-muted-foreground leading-none mt-0.5">Assistant</p>
+            <p className="text-[15px] font-semibold text-[#202124] leading-tight">HTE KnowledgeBase</p>
           </div>
         </div>
 
@@ -80,22 +80,28 @@ function Topbar({
       </div>
 
       {/* Desktop nav */}
-      <nav id="tour-nav" className="hidden lg:flex items-center gap-1">
-        {NAV_ITEMS.map(({ id, labelKey, icon: Icon }) => (
-          <button
-            key={id}
-            id={`nav-${id}`}
-            onClick={() => onNavigate(id)}
-            className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-              currentScreen === id
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+      <nav id="tour-nav" className="hidden lg:flex items-center gap-6">
+        {['Home', 'Search', 'Documents', 'About'].map((label, idx, arr) => (
+          <div key={label} className="flex items-center">
+            <button
+              onClick={() => {
+                if (label === 'Search') onNavigate('chat')
+                else if (label === 'Documents') onNavigate('documents')
+                // Home/About can just do nothing for now
+              }}
+              className={cn(
+                'text-[15px] font-medium transition-colors',
+                currentScreen === 'chat' && label === 'Search' ? 'text-[#1a73e8]' : 
+                currentScreen === 'documents' && label === 'Documents' ? 'text-[#1a73e8]' : 
+                'text-[#5f6368] hover:text-[#202124]'
+              )}
+            >
+              {label}
+            </button>
+            {idx < arr.length - 1 && (
+              <span className="ml-6 text-[#dadce0]">·</span>
             )}
-          >
-            <Icon className="w-4 h-4" />
-            {t(labelKey)}
-          </button>
+          </div>
         ))}
       </nav>
 

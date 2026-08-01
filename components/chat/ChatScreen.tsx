@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Send, Paperclip, Sparkles, GraduationCap, Zap,
   RefreshCw, CheckSquare, Map as MapIcon, Users, ChevronRight, PanelRight,
-  Mic, MicOff
+  Mic, MicOff, FileText, Search
 } from 'lucide-react'
 import { SUGGESTED_PROMPTS, type Message, type Conversation } from '@/lib/mock-data'
 import ChatSidebar from './ChatSidebar'
@@ -44,11 +44,10 @@ function ThinkingIndicator() {
         </div>
         
         {/* Skeleton lines for the answer block */}
-        <div className="space-y-2.5 animate-pulse">
-          <div className="h-3 bg-muted/60 rounded-full w-full"></div>
-          <div className="h-3 bg-muted/60 rounded-full w-[92%]"></div>
-          <div className="h-3 bg-muted/60 rounded-full w-[96%]"></div>
-          <div className="h-3 bg-muted/60 rounded-full w-[75%]"></div>
+        <div className="space-y-2.5 animate-pulse mt-2">
+          <div className="h-[14px] bg-muted/60 rounded-full w-[100%]"></div>
+          <div className="h-[14px] bg-muted/60 rounded-full w-[85%]"></div>
+          <div className="h-[14px] bg-muted/60 rounded-full w-[60%]"></div>
         </div>
       </div>
     </div>
@@ -72,58 +71,92 @@ function StreamingMessage({ content }: { content: string }) {
 }
 
 function EmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-full px-4 py-12">
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-        className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4"
-      >
-        <Sparkles className="w-7 h-7 text-primary" />
-      </motion.div>
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="text-center mb-8"
-      >
-        <h2 className="text-xl font-bold text-foreground mb-1.5">Higher &amp; Technical Education Assistant</h2>
-        <p className="text-muted-foreground text-sm max-w-sm">
-          Ask me anything about HTE policies, AICTE circulars, scholarships, or guidelines — I&apos;ll find the answer with grounded sources.
-        </p>
-      </motion.div>
+  const CATEGORIES = [
+    { label: 'Admissions', color: 'bg-blue-50 text-blue-500 border-blue-200' },
+    { label: 'Scholarships', color: 'bg-amber-50 text-amber-500 border-amber-200' },
+    { label: 'Institutions', color: 'bg-teal-50 text-teal-500 border-teal-200' },
+    { label: 'Policies', color: 'bg-violet-50 text-violet-500 border-violet-200' },
+    { label: 'Placements', color: 'bg-green-50 text-green-500 border-green-200' },
+    { label: 'Exams', color: 'bg-rose-50 text-rose-500 border-rose-200' },
+  ]
 
+  return (
+    <div className="flex flex-col items-center justify-center h-full px-4 py-16 overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 w-full max-w-2xl"
+        className="text-center w-full max-w-3xl mb-8"
       >
-        {SUGGESTED_PROMPTS.map((prompt, i) => {
-          const Icon = ICON_MAP[prompt.icon] || Sparkles
-          return (
-            <motion.button
+        <h1 className="text-4xl sm:text-5xl font-bold text-foreground mb-4 tracking-[-0.03em] leading-tight text-balance">
+          Ask anything about HTE policies, circulars & guidelines
+        </h1>
+        <p className="text-muted-foreground text-[17px] mb-8">
+          Answers grounded in official documents.
+        </p>
+        <div className="w-full h-px bg-border max-w-xl mx-auto mb-8" />
+        
+        {/* Suggestion Chips */}
+        <div className="flex flex-wrap justify-center gap-3 mb-12">
+          {SUGGESTED_PROMPTS.slice(0, 3).map((prompt, i) => (
+            <button
               key={prompt.label}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 + i * 0.05 }}
               onClick={() => onPrompt(prompt.label)}
-              className="text-left p-3.5 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all group"
+              className="flex items-center gap-2.5 px-4 py-2 rounded-full border border-border bg-card hover:border-primary/30 hover:bg-muted transition-all text-sm font-medium text-foreground whitespace-nowrap"
             >
-              <div className="flex items-start gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
-                  <Icon className="w-3.5 h-3.5 text-primary" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#1a73e8]" />
+              {prompt.label}
+            </button>
+          ))}
+        </div>
+
+        {/* How it works strip */}
+        <div className="flex items-center justify-center gap-2 sm:gap-6 mb-16 text-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1a73e8] flex items-center justify-center border border-blue-100">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <span className="text-muted-foreground font-medium hidden sm:inline">Ask</span>
+          </div>
+          <div className="w-8 sm:w-16 border-t-2 border-dashed border-border" />
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100">
+              <RefreshCw className="w-4 h-4" />
+            </div>
+            <span className="text-muted-foreground font-medium hidden sm:inline">Search</span>
+          </div>
+          <div className="w-8 sm:w-16 border-t-2 border-dashed border-border" />
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+              <CheckSquare className="w-4 h-4" />
+            </div>
+            <span className="text-muted-foreground font-medium hidden sm:inline">Verify</span>
+          </div>
+        </div>
+
+        {/* Section transition */}
+        <div className="flex items-center gap-4 mb-10 w-full max-w-2xl mx-auto">
+          <div className="flex-1 h-px bg-border" />
+          <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Browse</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+
+        {/* Category Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 w-full max-w-2xl mx-auto">
+          {CATEGORIES.map((cat, i) => (
+            <button
+              key={cat.label}
+              className="group flex items-center justify-between p-3 rounded-xl border border-border bg-card hover:border-primary/30 transition-all text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${cat.color}`}>
+                  <FileText className="w-4 h-4" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground leading-snug">{prompt.label}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{prompt.description}</p>
-                </div>
+                <span className="text-[15px] font-medium text-foreground">{cat.label}</span>
               </div>
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary mt-2 ml-auto transition-colors" />
-            </motion.button>
-          )
-        })}
+              <ChevronRight className="w-4 h-4 text-muted-foreground/0 group-hover:text-primary group-hover:text-muted-foreground/100 transition-all -translate-x-2 group-hover:translate-x-0" />
+            </button>
+          ))}
+        </div>
       </motion.div>
     </div>
   )
@@ -564,7 +597,7 @@ export default function ChatScreen() {
           {messages.length === 0 && !isThinking && !streamingText ? (
             <EmptyState onPrompt={(text) => sendMessage(text)} />
           ) : (
-            <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+            <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
               {messages.map((msg) => (
                 <ChatMessage
                   key={msg.id}
@@ -584,11 +617,11 @@ export default function ChatScreen() {
 
         {/* Input bar */}
         <div className="px-4 pb-4 pt-3 border-t border-border bg-background shrink-0">
-          <div className="max-w-3xl mx-auto">
-            <div className="flex items-end gap-2 px-3 py-2.5 rounded-2xl border border-input bg-card shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-ring transition-all">
-              <button className="shrink-0 mb-1 text-muted-foreground hover:text-foreground transition-colors">
-                <Paperclip className="w-4 h-4" />
-              </button>
+          <div className="max-w-2xl mx-auto">
+            <div className="flex items-end gap-2 px-3 py-2 rounded-2xl border border-input bg-card shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-ring" style={{ transition: 'all 0.18s ease' }}>
+              <div className="shrink-0 mb-3 ml-1 text-muted-foreground">
+                <Search className="w-5 h-5 text-muted-foreground/70" />
+              </div>
               <textarea
                 ref={textareaRef}
                 value={input}
@@ -596,14 +629,15 @@ export default function ChatScreen() {
                 onKeyDown={handleInputKey}
                 placeholder={t('chat.ask_question')}
                 rows={1}
-                className="flex-1 bg-transparent resize-none text-sm text-foreground placeholder:text-muted-foreground focus:outline-none min-h-[24px] max-h-40 leading-6 py-0.5"
+                className="flex-1 bg-transparent resize-none text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none min-h-[52px] max-h-40 leading-[52px] py-0"
               />
               <button
                 onClick={toggleListening}
                 className={cn(
-                  'shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all mb-1',
+                  'shrink-0 w-10 h-10 rounded-xl flex items-center justify-center mb-1.5',
                   isListening ? 'text-red-500 bg-red-500/10' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 )}
+                style={{ transition: 'all 0.18s ease' }}
                 title={isListening ? "Stop listening" : "Start dictating"}
               >
                 {isListening ? <MicOff className="w-4 h-4 animate-pulse" /> : <Mic className="w-4 h-4" />}
@@ -612,17 +646,18 @@ export default function ChatScreen() {
                 onClick={() => sendMessage(input)}
                 disabled={!input.trim() || isThinking}
                 className={cn(
-                  'shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all mb-1',
+                  'shrink-0 w-10 h-10 rounded-xl flex items-center justify-center mb-1.5',
                   input.trim() && !isThinking
                     ? 'bg-primary text-primary-foreground hover:opacity-90'
                     : 'bg-muted text-muted-foreground cursor-not-allowed'
                 )}
+                style={{ transition: 'all 0.18s ease' }}
               >
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-center text-xs text-muted-foreground/60 mt-1.5">
-              Answers are grounded in official HTE documents. Always verify critical decisions.
+            <p className="text-center text-[11px] text-muted-foreground/60 mt-2">
+              Answers are grounded in official documents only. Always verify with the department for legal matters.
             </p>
           </div>
         </div>
