@@ -30,8 +30,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 7
 
-    # ── Supermemory ───────────────────────────────────────────────────────────
-    supermemory_api_key: str = ""
+    # ── Vector DB (Qdrant) ────────────────────────────────────────────────────
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_api_key: str = ""
 
     # ── LLM ───────────────────────────────────────────────────────────────────
     llm_provider: Literal["gemini", "openai"] = "gemini"

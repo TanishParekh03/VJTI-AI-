@@ -33,14 +33,22 @@ function ThinkingIndicator() {
       <div className="shrink-0 w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center mt-1">
         <Sparkles className="w-4 h-4 text-primary animate-pulse" />
       </div>
-      <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3.5 shadow-sm">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex-1 bg-card border border-border rounded-2xl rounded-tl-sm px-4 pt-3.5 pb-4 shadow-sm max-w-[85%]">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
           <span className="flex gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '0ms' }} />
             <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '150ms' }} />
             <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '300ms' }} />
           </span>
-          {t('chat.searching')}
+          {t('chat.searching') || "Searching for information..."}
+        </div>
+        
+        {/* Skeleton lines for the answer block */}
+        <div className="space-y-2.5 animate-pulse">
+          <div className="h-3 bg-muted/60 rounded-full w-full"></div>
+          <div className="h-3 bg-muted/60 rounded-full w-[92%]"></div>
+          <div className="h-3 bg-muted/60 rounded-full w-[96%]"></div>
+          <div className="h-3 bg-muted/60 rounded-full w-[75%]"></div>
         </div>
       </div>
     </div>

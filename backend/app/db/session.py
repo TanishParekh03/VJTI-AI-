@@ -23,7 +23,7 @@ if ".supabase.co" in db_url:
 
 engine = create_async_engine(
     db_url,
-    echo=settings.app_env == "development",
+    echo=False,  # disabled to reduce console spam in development
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,

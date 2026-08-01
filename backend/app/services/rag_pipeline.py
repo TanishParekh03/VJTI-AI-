@@ -22,6 +22,7 @@ import json
 import logging
 import time
 import uuid
+import asyncio
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 from typing import Any
@@ -146,100 +147,28 @@ async def run_rag_pipeline(
         if conversation_id and conversation_id.startswith("c-"):
             conversation_id = None
 
-        history_messages: list[dict[str, str]] = []
-        if conversation_id:
-            result = await db.execute(
-                select(Message)
-                .where(Message.conversation_id == conversation_id)
-                .order_by(Message.created_at.desc())
-                .limit(settings.conversation_history_turns * 2)
-            )
-            prior_messages = list(reversed(result.scalars().all()))
-            for m in prior_messages:
-                role = "assistant" if m.role == "assistant" else "user"
-                history_messages.append({"role": role, "content": m.content})
-
-        # ── Step 3: Supermemory search (or skip if general mode) ──────────────
-        sm_latency_ms = None
-        search_results = []
-        if mode == "general":
-            # General Chat Mode
-            system_prompt = (
-                "You are the HTE AI Assistant for the Higher & Technical Education Department, "
-                "Government of Maharashtra. "
-                "You are in 'General Mode', which means you are chatting openly with the user. "
-                f"You MUST formulate your entire response in **{language or 'English'}**. "
-                "Be helpful, concise, and courteous."
-            )
-            llm_messages: list[dict[str, str]] = [
-                {"role": "system", "content": system_prompt},
-                *history_messages,
-                {"role": "user", "content": message_text},
-            ]
-            full_answer = ""
-            llm_start = time.monotonic()
-            async for chunk in llm_service.generate(llm_messages, stream=True):
-                full_answer += chunk
-                yield _sse("token", {"content": chunk})
-            llm_latency_ms = (time.monotonic() - llm_start) * 1000
-
-            # Yield empty sources for general mode
-            yield _sse("sources", {"sources": [], "confidence": 1.0, "confidence_label": "high"})
-            
-            if conversation_id:
-                conv_res = await db.execute(select(Conversation).where(Conversation.id == conversation_id))
-                if not conv_res.scalar_one_or_none():
-                    conv = Conversation(
-                        id=conversation_id,
-                        user_id=user.id,
-                        title=message_text[:60] + ("…" if len(message_text) > 60 else ""),
-                        preview=message_text[:160],
-                        message_count=0,
-                    )
-                    db.add(conv)
-                    await db.flush()
-                await _persist_user_message(db, conversation_id, message_text)
-                asst_msg = Message(
-                    conversation_id=conversation_id,
-                    role="assistant",
-                    content=full_answer,
-                    confidence="none",
-                    confidence_score=1.0,
-                )
-                db.add(asst_msg)
-                await db.flush()
-                
-                # Update conversation stats
-                await db.execute(
-                    __import__("sqlalchemy", fromlist=["update"]).update(Conversation)
-                    .where(Conversation.id == conversation_id)
-                    .values(
-                        message_count=Conversation.message_count + 2,
-                        preview=message_text[:160],
-                        updated_at=datetime.now(timezone.utc),
-                    )
-                )
-                await db.commit()
-            
-            yield _sse("done", {"conversation_id": conversation_id})
-            return
-
         # Grounded Mode with HyDE
-        # ── Step 3a: HyDE (Hypothetical Document Embeddings) ───────────────────
-        hyde_prompt = (
-            "Write a very brief, hypothetical official response or paragraph that directly answers the following question. "
-            "Write it as if it were an excerpt from a government circular. Keep it under 3 sentences.\n"
-            f"Question: {message_text}"
-        )
-        hyde_messages = [{"role": "user", "content": hyde_prompt}]
-        hypothetical_answer = ""
-        async for chunk in llm_service.generate(hyde_messages, stream=True):
-            hypothetical_answer += chunk
+        async def fetch_history() -> list[dict[str, str]]:
+            hist = []
+            if conversation_id:
+                res = await db.execute(
+                    select(Message)
+                    .where(Message.conversation_id == conversation_id)
+                    .order_by(Message.created_at.desc())
+                    .limit(settings.conversation_history_turns * 2)
+                )
+                prior = list(reversed(res.scalars().all()))
+                for m in prior:
+                    r = "assistant" if m.role == "assistant" else "user"
+                    hist.append({"role": r, "content": m.content})
+            return hist
+
+        history_messages = await fetch_history()
             
-        # ── Step 3b: Supermemory search using HyDE expanded query ──────────────
+        # ── Step 3b: Supermemory search using query ──────────────
         sm_start = time.monotonic()
         search_results = await retrieval_service.search(
-            query=f"{message_text} {hypothetical_answer}",
+            query=message_text,
             container_tags=container_tags,
         )
         sm_latency_ms = (time.monotonic() - sm_start) * 1000
