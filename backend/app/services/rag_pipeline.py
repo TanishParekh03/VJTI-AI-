@@ -84,7 +84,7 @@ def _build_system_prompt(results: list[SearchResult], language: str | None = Non
         "4. FORMATTING: Format your answer in elegant, executive Markdown. Never start with conversational intros like 'Based on the provided document...' or 'Here is what I found:'. Start immediately with a clean <h3> title (e.g., ### State Merit Scholarship — Income Criteria).\n"
         "5. TABLES & VISUAL STRUCTURE: Whenever presenting criteria, percentages, dates, weightages, or income limits, ALWAYS use clean Markdown Tables (| Category | Value / Weightage |).\n"
         "6. BULLETS & CALLOUTS: Use clean bullet points with **bold lead-ins** for key conditions. Use blockquotes (> **Note:** ...) for important caveats or circular references.\n"
-        f"7. BILINGUAL LANGUAGE MATCHING: You MUST formulate your entire response in **{target_lang}**. This is a strict requirement. All explanations, headings, and tables must be in {target_lang}. Keep exact circular numbers, figures, and technical terms accurate regardless of language.\n"
+        f"7. BILINGUAL LANGUAGE MATCHING: You MUST formulate your entire response in **{target_lang}**. This is a strict requirement. All explanations, headings, and tables must be in {target_lang}. **CRITICAL:** You must preserve official Government terminology (e.g., specific names of schemes, legal phrases, department names) in their original form while translating responses.\n"
         "8. Do NOT speculate about policies not present in the provided documents.\n\n"
 
         "GR CONFLICT & SUPERSESSION DETECTION — CRITICAL:\n"

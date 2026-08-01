@@ -44,6 +44,7 @@ function Topbar({
   onCommandPalette: () => void
   onMobileMenu: () => void
   onStartTour: () => void
+  onShowAbout: () => void
 }) {
   const current = NAV_ITEMS.find((n) => n.id === currentScreen)
   const { t } = useTranslation()
@@ -85,9 +86,9 @@ function Topbar({
           <div key={label} className="flex items-center">
             <button
               onClick={() => {
-                if (label === 'Search') onNavigate('chat')
+                if (label === 'Home' || label === 'Search') onNavigate('chat')
                 else if (label === 'Documents') onNavigate('documents')
-                // Home/About can just do nothing for now
+                else if (label === 'About') onShowAbout()
               }}
               className={cn(
                 'text-[15px] font-medium transition-colors',
@@ -239,6 +240,7 @@ export default function AppShell({ currentScreen, onNavigate, onLogout }: Props)
   const [commandOpen, setCommandOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [tourOpen, setTourOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
 
   // Cmd+K shortcut
   useEffect(() => {
@@ -263,6 +265,7 @@ export default function AppShell({ currentScreen, onNavigate, onLogout }: Props)
         onCommandPalette={() => setCommandOpen(true)}
         onMobileMenu={() => setMobileMenuOpen(true)}
         onStartTour={() => setTourOpen(true)}
+        onShowAbout={() => setAboutOpen(true)}
       />
 
       <MobileSidebar
@@ -295,6 +298,40 @@ export default function AppShell({ currentScreen, onNavigate, onLogout }: Props)
         onLogout={onLogout}
       />
       <ProductTour runTour={tourOpen} onClose={() => setTourOpen(false)} />
+      {/* About Modal */}
+      <AnimatePresence>
+        {aboutOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setAboutOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              className="relative w-full max-w-md bg-card border border-border shadow-2xl rounded-2xl p-6 flex flex-col items-center text-center"
+            >
+              <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center shadow-sm mb-4">
+                <span className="text-white font-bold text-lg tracking-wide">HTE</span>
+              </div>
+              <h2 className="text-xl font-bold text-foreground mb-2">HTE KnowledgeBase</h2>
+              <p className="text-sm text-muted-foreground mb-6">
+                AI-Powered Intelligent System for the Maharashtra Higher & Technical Education Department.
+              </p>
+              <button
+                onClick={() => setAboutOpen(false)}
+                className="w-full h-10 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition"
+              >
+                Close
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

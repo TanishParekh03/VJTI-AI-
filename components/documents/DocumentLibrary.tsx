@@ -199,8 +199,9 @@ function CompareModal({
 
 // ── Document Detail Drawer ────────────────────────────────────────────────────
 
-function DocumentDetailDrawer({ doc, onClose, onSelectForCompare, selectedForCompare }: {
+function DocumentDetailDrawer({ doc, docs, onClose, onSelectForCompare, selectedForCompare }: {
   doc: Document
+  docs: Document[]
   onClose: () => void
   onSelectForCompare: (d: Document) => void
   selectedForCompare: Document[]
@@ -266,11 +267,11 @@ function DocumentDetailDrawer({ doc, onClose, onSelectForCompare, selectedForCom
           </div>
         </div>
 
-        {/* Related (static) */}
+        {/* Related (dynamic) */}
         <div>
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{t('docs.related_documents')}</h3>
           <div className="space-y-1.5">
-            {MOCK_DOCUMENTS.filter((d) => d.category === doc.category && d.id !== doc.id).slice(0, 3).map((d) => (
+            {docs.filter((d) => d.category === doc.category && d.id !== doc.id).slice(0, 3).map((d) => (
               <button key={d.id} className="w-full flex items-center gap-2.5 p-2.5 rounded-lg border border-border bg-card hover:border-primary/30 hover:bg-primary/5 transition-colors text-left">
                 {fileTypeIcon[d.fileType]}
                 <span className="text-sm text-foreground truncate flex-1">{d.title}</span>
@@ -789,6 +790,7 @@ export default function DocumentLibrary() {
             />
             <DocumentDetailDrawer
               doc={selectedDoc}
+              docs={docs}
               onClose={() => setSelectedDoc(null)}
               onSelectForCompare={(doc) => { toggleCompareSelection(doc); setSelectedDoc(null) }}
               selectedForCompare={compareSelection}
