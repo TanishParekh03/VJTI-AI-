@@ -340,3 +340,50 @@ async def extract_search_filters(query: str) -> dict:
     except Exception as exc:
         logger.warning(f"Failed to extract search filters: {exc}")
         return {}
+
+async def extract_document_lineage(text: str) -> list[dict]:
+    """
+    Extract relationships to other Government Resolutions from the document text.
+    Identifies 'supersedes', 'amends', 'references', and 'clarifies' relationships.
+    Returns strict JSON list of objects.
+    """
+    import json
+    prompt = (
+        "You are an AI document linkage expert. Read the following Government Document text "
+        "and identify any references to other official Government Resolutions (GRs) or Circulars.\n\n"
+        f"TEXT:\n{text[:15000]}\n\n"
+        "For each reference, determine the relationship type. Must be one of:\n"
+        "- 'supersedes' (if the document cancels, replaces, or supersedes the older GR)\n"
+        "- 'amends' (if it modifies or adds to the older GR)\n"
+        "- 'references' (if it simply cites or mentions the older GR)\n"
+        "- 'clarifies' (if it provides clarification on the older GR)\n\n"
+        "Extract the exact reference number/date (e.g. 'GR No. 2024-123' or 'dated 14 May 2021').\n"
+        "Return ONLY a raw JSON array of objects, with no markdown fences, no preamble, and no explanation.\n"
+        "Schema for each object:\n"
+        "{\n"
+        "  \"target_reference\": \"string (the extracted GR number or date)\",\n"
+        "  \"relationship_type\": \"string (supersedes/amends/references/clarifies)\",\n"
+        "  \"confidence\": float (0.0 to 1.0),\n"
+        "  \"extracted_text\": \"string (the exact sentence providing evidence)\"\n"
+        "}\n"
+    )
+    messages: list[LLMMessage] = [{"role": "user", "content": prompt}]
+    raw_response = ""
+    try:
+        async for chunk in generate(messages, stream=False):
+            raw_response += chunk
+            
+        clean_str = raw_response.strip()
+        if clean_str.startswith("```"):
+            clean_str = clean_str.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        if clean_str.startswith("json"):
+            clean_str = clean_str[4:].strip()
+            
+        relationships = json.loads(clean_str)
+        if isinstance(relationships, list):
+            return relationships
+        return []
+    except Exception as exc:
+        logger.warning(f"Failed to extract document lineage: {exc}")
+        return []
+

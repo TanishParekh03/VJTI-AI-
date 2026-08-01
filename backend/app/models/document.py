@@ -48,3 +48,15 @@ class Document(Base):
     uploader: Mapped["User"] = relationship(  # type: ignore[name-defined]  # noqa: F821
         back_populates="uploaded_documents", lazy="select"
     )
+
+    outgoing_lineage_refs = relationship(
+        "GRRelationship",
+        foreign_keys="[GRRelationship.source_gr_id]",
+        back_populates="source_doc",
+        cascade="all, delete-orphan",
+    )
+    incoming_lineage_refs = relationship(
+        "GRRelationship",
+        foreign_keys="[GRRelationship.target_gr_id]",
+        back_populates="target_doc",
+    )

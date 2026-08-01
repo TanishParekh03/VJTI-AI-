@@ -5,6 +5,7 @@ from app.models.message import Message
 from app.models.source import Source
 from app.models.analytics import AnalyticsEvent
 from app.models.audit_log import AuditLog
+from app.models.lineage import GRRelationship
 
 __all__ = [
     "User",
@@ -14,4 +15,5 @@ __all__ = [
     "Source",
     "AnalyticsEvent",
     "AuditLog",
+    "GRRelationship",
 ]

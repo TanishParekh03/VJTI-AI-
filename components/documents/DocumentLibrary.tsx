@@ -14,6 +14,7 @@ import dynamic from 'next/dynamic'
 import { MOCK_DOCUMENTS, DOC_CATEGORIES, type Document, type DocStatus } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
+import { GRTimeline } from './GRTimeline'
 
 // Lazy load CompareModal to avoid compiling react-markdown/remark-gfm immediately
 const CompareModal = dynamic(() => import('./CompareModal'), {
@@ -168,6 +169,11 @@ function DocumentDetailDrawer({ doc, docs, onClose, onSelectForCompare, selected
               </div>
             ))}
           </div>
+        </div>
+
+        {/* GR Timeline */}
+        <div className="mt-6">
+          <GRTimeline docId={doc.id} />
         </div>
       </div>
 

@@ -158,6 +158,44 @@ async def _ingest_in_background(
                 doc.tags = json.dumps(ai_tags)
                 doc.supermemory_document_id = doc_id  # custom_id = postgres id
             await db.commit()
+
+            # 5. Extract lineage (GR relationships)
+            from app.models.lineage import GRRelationship
+            from sqlalchemy import or_
+
+            lineage_data = await llm_service.extract_document_lineage(raw_text)
+            for rel in lineage_data:
+                target_ref = str(rel.get("target_reference", "")).strip()
+                if not target_ref:
+                    continue
+                
+                # Try to resolve target_ref against existing documents
+                # Exact match on gr_number or title first
+                target_doc_id = None
+                resolve_query = select(Document).where(
+                    or_(
+                        Document.gr_number == target_ref,
+                        Document.title.ilike(f"%{target_ref}%")
+                    )
+                ).limit(1)
+                resolved_res = await db.execute(resolve_query)
+                resolved_doc = resolved_res.scalar_one_or_none()
+
+                if resolved_doc:
+                    target_doc_id = resolved_doc.id
+
+                # Create relationship record
+                gr_rel = GRRelationship(
+                    source_gr_id=doc_id,
+                    target_gr_id=target_doc_id,
+                    unresolved_reference=target_ref if not target_doc_id else None,
+                    relationship_type=rel.get("relationship_type", "references"),
+                    confidence=float(rel.get("confidence", 1.0)),
+                    extracted_text=rel.get("extracted_text")
+                )
+                db.add(gr_rel)
+            
+            await db.commit()
         except Exception as exc:
             async with AsyncSessionLocal() as err_db:
                 result = await err_db.execute(select(Document).where(Document.id == doc_id))
@@ -451,16 +489,22 @@ async def download_document(
 @router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def delete_document(
     doc_id: str,
-    user: OfficerOrAdmin,
+    _: OfficerOrAdmin,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
-    """Delete a document from Postgres and Supermemory. Role: officer or admin."""
+    """
+    Officer/Admin only: Delete a document.
+    Deletes from PostgreSQL; CASCADE takes care of Sources and messages.
+    Also deletes from Qdrant via Supermemory.
+    """
     result = await db.execute(select(Document).where(Document.id == doc_id))
     doc = result.scalar_one_or_none()
     if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
 
-    # Delete from Supermemory first (best-effort)
     if doc.supermemory_document_id:
         try:
             await retrieval_service.delete_document(doc.supermemory_document_id)
@@ -468,7 +512,91 @@ async def delete_document(
             pass  # Don't block Postgres delete on Supermemory failure
 
     await db.delete(doc)
+    await db.commit()
+    logger.info("document_deleted", extra={"doc_id": doc_id})
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{doc_id}/lineage")
+async def get_document_lineage(
+    doc_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    depth: int = 3,
+):
+    """
+    Get the GR lineage graph for a document.
+    Returns both incoming and outgoing relationships recursively up to `depth`.
+    """
+    from sqlalchemy.orm import selectinload
+    from app.models.lineage import GRRelationship
+    
+    nodes = {}
+    edges = {}
+    
+    visited_docs = set()
+    queue = [(doc_id, 0)]
+    
+    while queue:
+        current_id, current_depth = queue.pop(0)
+        
+        if current_id in visited_docs or current_depth > depth:
+            continue
+            
+        visited_docs.add(current_id)
+        
+        # Fetch document
+        doc_res = await db.execute(select(Document).where(Document.id == current_id))
+        doc = doc_res.scalar_one_or_none()
+        if not doc:
+            continue
+            
+        nodes[current_id] = {
+            "id": doc.id,
+            "title": doc.title,
+            "gr_number": doc.gr_number,
+            "upload_date": doc.upload_date.isoformat() if doc.upload_date else None,
+            "category": doc.category,
+            "status": doc.status
+        }
+        
+        # Fetch outgoing relationships
+        out_res = await db.execute(
+            select(GRRelationship).where(GRRelationship.source_gr_id == current_id)
+        )
+        for rel in out_res.scalars().all():
+            edges[rel.id] = {
+                "id": rel.id,
+                "source_gr_id": rel.source_gr_id,
+                "target_gr_id": rel.target_gr_id,
+                "unresolved_reference": rel.unresolved_reference,
+                "relationship_type": rel.relationship_type,
+                "confidence": rel.confidence,
+                "extracted_text": rel.extracted_text,
+            }
+            if rel.target_gr_id and rel.target_gr_id not in visited_docs:
+                queue.append((rel.target_gr_id, current_depth + 1))
+                
+        # Fetch incoming relationships
+        in_res = await db.execute(
+            select(GRRelationship).where(GRRelationship.target_gr_id == current_id)
+        )
+        for rel in in_res.scalars().all():
+            edges[rel.id] = {
+                "id": rel.id,
+                "source_gr_id": rel.source_gr_id,
+                "target_gr_id": rel.target_gr_id,
+                "unresolved_reference": rel.unresolved_reference,
+                "relationship_type": rel.relationship_type,
+                "confidence": rel.confidence,
+                "extracted_text": rel.extracted_text,
+            }
+            if rel.source_gr_id and rel.source_gr_id not in visited_docs:
+                queue.append((rel.source_gr_id, current_depth + 1))
+                
+    return {
+        "nodes": list(nodes.values()),
+        "edges": list(edges.values())
+    }
 
 
 @router.patch("/{doc_id}", response_model=DocumentRead)
