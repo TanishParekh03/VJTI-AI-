@@ -1,28 +1,30 @@
 """
-Qdrant Retrieval Service (Local Vector DB)
-══════════════════════════════════════════
-Replaces the old Supermemory SDK.
-Uses Qdrant for vector storage and FastEmbed for local embeddings.
+Qdrant Retrieval Service (Local Vector DB & Gemini Embeddings)
+════════════════════════════════════════════════════════════
+Uses Qdrant for local vector storage and Google Gemini for embeddings.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
 import uuid
+import re
 from dataclasses import dataclass
 from typing import Any
 
 from qdrant_client import AsyncQdrantClient
-from qdrant_client.models import Filter, FieldCondition, MatchAny, MatchValue
+from qdrant_client.http.models import Filter, FieldCondition, MatchAny, MatchValue, Distance, VectorParams, PointStruct
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from google import genai
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# ── Singleton client ──────────────────────────────────────────────────────────
+# ── Singleton clients ──────────────────────────────────────────────────────────
 _client: AsyncQdrantClient | None = None
-COLLECTION_NAME = "hte_documents"
+_genai_client: genai.Client | None = None
+COLLECTION_NAME = "hte_documents_v2"
 
 def _get_client() -> AsyncQdrantClient:
     global _client
@@ -30,9 +32,26 @@ def _get_client() -> AsyncQdrantClient:
         url = getattr(settings, "qdrant_url", "http://localhost:6333")
         api_key = getattr(settings, "qdrant_api_key", None)
         _client = AsyncQdrantClient(url=url, api_key=api_key if api_key else None)
-        # Initialize FastEmbed embedding model
-        _client.set_model("BAAI/bge-small-en-v1.5")
     return _client
+
+def _get_genai_client() -> genai.Client:
+    global _genai_client
+    if _genai_client is None:
+        _genai_client = genai.Client(api_key=settings.gemini_api_key)
+    return _genai_client
+
+async def _get_embedding(text: str) -> list[float]:
+    """Generate a Gemini vector embedding for the given text."""
+    client = _get_genai_client()
+    try:
+        response = await client.aio.models.embed_content(
+            model='models/gemini-embedding-001',
+            contents=text
+        )
+        return response.embeddings[0].values
+    except Exception as e:
+        logger.error(f"Failed to generate embedding: {e}")
+        raise
 
 _index_created = False
 
@@ -41,18 +60,24 @@ async def _ensure_index(client: AsyncQdrantClient) -> None:
     if _index_created:
         return
     try:
-        if await client.collection_exists(COLLECTION_NAME):
+        exists = await client.collection_exists(collection_name=COLLECTION_NAME)
+        if not exists:
+            await client.create_collection(
+                collection_name=COLLECTION_NAME,
+                vectors_config=VectorParams(size=3072, distance=Distance.COSINE),
+            )
             await client.create_payload_index(
                 collection_name=COLLECTION_NAME,
                 field_name="container_tags",
                 field_schema="keyword",
             )
             _index_created = True
+        else:
+            _index_created = True
     except Exception as e:
-        logger.warning(f"Failed to create payload index (it may already exist): {e}")
+        logger.warning(f"Failed to create collection or index: {e}")
 
 # ── Role → container-tag mapping ─────────────────────────────────────────────
-import re
 
 def _sanitize_tag(val: str) -> str:
     cleaned = re.sub(r'\s+', '_', str(val or ''))
@@ -100,11 +125,12 @@ async def ingest_document(
     metadata: dict[str, Any],
 ) -> str:
     """
-    Chunk and ingest text into Qdrant using FastEmbed.
+    Chunk and ingest text into local Qdrant using Gemini embeddings.
     Returns the doc_id.
     """
     client = _get_client()
     try:
+        await _ensure_index(client)
         content_str = file_bytes.decode("utf-8", errors="ignore") if isinstance(file_bytes, bytes) else str(file_bytes)
         
         # Chunk the document
@@ -115,41 +141,37 @@ async def ingest_document(
         )
         chunks = splitter.split_text(content_str)
         
-        docs = []
-        payloads = []
-        ids = []
-        
+        points = []
         for chunk in chunks:
-            chunk_id = str(uuid.uuid4())
-            ids.append(chunk_id)
-            docs.append(chunk)
-            payloads.append({
+            embedding = await _get_embedding(chunk)
+            payload = {
                 **metadata,
                 "document_id": doc_id,
                 "filename": filename,
                 "container_tags": container_tags,
                 "text": chunk,
-            })
+            }
+            points.append(
+                PointStruct(
+                    id=str(uuid.uuid4()),
+                    vector=embedding,
+                    payload=payload
+                )
+            )
             
-        # Using add() which automatically creates collection and embeddings
-        await client.add(
+        await client.upsert(
             collection_name=COLLECTION_NAME,
-            documents=docs,
-            metadata=payloads,
-            ids=ids,
+            points=points
         )
-        
-        await _ensure_index(client)
         
         logger.info(
             "qdrant_ingest_complete",
-            extra={"doc_id": doc_id, "filename": filename, "chunks": len(chunks)},
+            extra={"doc_id": doc_id, "doc_filename": filename, "chunks": len(chunks)},
         )
         return doc_id
     except Exception as exc:
         logger.error("qdrant_ingest_failed", extra={"doc_id": doc_id, "error": str(exc)})
         raise
-
 
 async def search(
     query: str,
@@ -158,7 +180,7 @@ async def search(
     limit: int | None = None,
 ) -> list[SearchResult]:
     """
-    Search Qdrant using FastEmbed.
+    Search local Qdrant using Gemini embeddings.
     """
     client = _get_client()
     effective_limit = limit or settings.max_context_results
@@ -183,16 +205,19 @@ async def search(
                 else:
                     qdrant_filter.must.append(FieldCondition(key=k, match=MatchValue(value=v)))
 
-        search_results = await client.query(
+        query_vector = await _get_embedding(query)
+
+        search_results = await client.search(
             collection_name=COLLECTION_NAME,
-            query_text=query,
+            query_vector=query_vector,
             query_filter=qdrant_filter,
             limit=effective_limit,
+            with_payload=True
         )
 
         results: list[SearchResult] = []
         for scored_point in search_results:
-            meta = scored_point.metadata or {}
+            meta = scored_point.payload or {}
             doc_id_val = meta.get("document_id")
             snippet_val = meta.get("text", "")
             
