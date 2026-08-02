@@ -13,6 +13,7 @@ class ChatRequest(BaseModel):
     language: str | None = None
     mode: Literal["grounded", "general"] = "grounded"
     report_prompt: str | None = None
+    attached_file_text: str | None = None
 
 
 class MessageRead(BaseModel):

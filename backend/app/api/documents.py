@@ -13,6 +13,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,7 +33,7 @@ from app.services import retrieval_service
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
-ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".txt", ".md"}
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".txt", ".md", ".jpg", ".jpeg", ".png"}
 MAX_FILE_SIZE_MB = 50
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
@@ -42,7 +43,11 @@ os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 def _ext_to_file_type(filename: str) -> str:
     ext = os.path.splitext(filename)[1].lower()
-    return {"pdf": "PDF", ".pdf": "PDF", ".docx": "DOCX", ".xlsx": "XLSX"}.get(ext, "PDF")
+    mapping = {
+        ".pdf": "PDF", ".docx": "DOCX", ".xlsx": "XLSX", 
+        ".jpg": "IMAGE", ".jpeg": "IMAGE", ".png": "IMAGE"
+    }
+    return mapping.get(ext, "PDF")
 
 
 def _format_size(size_bytes: int) -> str:
@@ -82,8 +87,8 @@ def _extract_text_from_file_bytes(file_bytes: bytes, filename: str) -> str:
                 images = convert_from_bytes(file_bytes)
                 ocr_text = []
                 for img in images:
-                    # eng+mar is English + Marathi OCR
-                    text = pytesseract.image_to_string(img, lang="eng+mar")
+                    # eng+mar+hin is English + Marathi + Hindi OCR
+                    text = pytesseract.image_to_string(img, lang="eng+mar+hin")
                     if text:
                         ocr_text.append(text)
                 
@@ -96,6 +101,49 @@ def _extract_text_from_file_bytes(file_bytes: bytes, filename: str) -> str:
                 logger.warning(f"Tesseract OCR failed: {e}")
                 
         except Exception:
+            pass
+
+    elif ext == "docx":
+        try:
+            import io
+            import docx
+            doc = docx.Document(io.BytesIO(file_bytes))
+            return "\n".join([paragraph.text for paragraph in doc.paragraphs])
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to extract text from docx: {e}")
+            pass
+            
+    elif ext == "xlsx":
+        try:
+            import io
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+            text_lines = []
+            for sheet in wb.worksheets:
+                for row in sheet.iter_rows(values_only=True):
+                    row_text = " ".join([str(cell) for cell in row if cell is not None])
+                    if row_text.strip():
+                        text_lines.append(row_text)
+            return "\n".join(text_lines)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to extract text from xlsx: {e}")
+            pass
+
+    elif ext in ["jpg", "jpeg", "png"]:
+        try:
+            import io
+            from PIL import Image
+            import pytesseract
+            
+            img = Image.open(io.BytesIO(file_bytes))
+            text = pytesseract.image_to_string(img, lang="eng+mar+hin")
+            if text and text.strip():
+                return text
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to extract text from image: {e}")
             pass
 
     return file_bytes.decode("utf-8", errors="ignore")
@@ -197,13 +245,47 @@ async def _ingest_in_background(
             
             await db.commit()
         except Exception as exc:
+            import logging
+            log = logging.getLogger(__name__)
+            log.error(f"Ingestion failed for {doc_id}, auto-removing document: {exc}")
             async with AsyncSessionLocal() as err_db:
                 result = await err_db.execute(select(Document).where(Document.id == doc_id))
                 doc = result.scalar_one_or_none()
                 if doc:
-                    doc.status = "failed"
-                    doc.ingestion_error = str(exc)
-                await err_db.commit()
+                    # Remove from Supermemory
+                    if doc.supermemory_document_id:
+                        try:
+                            from app.services import retrieval_service
+                            await retrieval_service.delete_document(doc.supermemory_document_id)
+                        except Exception:
+                            pass
+                            
+                    # Remove from local uploads
+                    import os
+                    ext = ""
+                    if filename and "." in filename:
+                        ext = "." + filename.split(".")[-1].lower()
+                    file_path = os.path.join(UPLOADS_DIR, f"{doc_id}{ext}")
+                    if os.path.exists(file_path):
+                        try:
+                            os.remove(file_path)
+                        except Exception:
+                            pass
+                            
+                    # Remove from Supabase
+                    try:
+                        from supabase import create_client
+                        supabase_url = os.getenv("SUPABASE_URL")
+                        supabase_key = os.getenv("SUPABASE_KEY")
+                        if supabase_url and supabase_key:
+                            supabase = create_client(supabase_url, supabase_key)
+                            supabase.storage.from_("VJTI_AI").remove([f"{doc_id}{ext}"])
+                    except Exception as e:
+                        log.warning(f"Failed to remove failed document from Supabase: {e}")
+
+                    # Remove from Postgres DB
+                    await err_db.delete(doc)
+                    await err_db.commit()
 
 
 @router.post("/compare", response_model=CompareResponse)
@@ -340,6 +422,30 @@ async def upload_document(
     with open(file_path, "wb") as f:
         f.write(file_bytes)
 
+    # Upload to Supabase bucket asynchronously
+    import threading
+    def upload_to_supabase(doc_id, file_bytes, ext):
+        try:
+            import os
+            from supabase import create_client
+            
+            supabase_url = os.getenv("SUPABASE_URL")
+            supabase_key = os.getenv("SUPABASE_KEY")
+            if supabase_url and supabase_key:
+                supabase = create_client(supabase_url, supabase_key)
+                
+                # Re-read file to avoid closed file issues
+                supabase.storage.from_("VJTI_AI").upload(
+                    file=file_bytes,
+                    path=f"{doc_id}{ext}",
+                    file_options={"content-type": "application/pdf" if ext == ".pdf" else "application/octet-stream", "upsert": "true"}
+                )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to upload to Supabase: {e}")
+            
+    threading.Thread(target=upload_to_supabase, args=(doc_id, file_bytes, file_ext)).start()
+
     # Log analytics event
     event = AnalyticsEvent(
         user_id=user.id,
@@ -472,6 +578,15 @@ async def download_document(
     # Find the file in the uploads directory matching the doc_id and any extension
     import glob
     matching_files = glob.glob(os.path.join(UPLOADS_DIR, f"{doc_id}.*"))
+    
+    file_ext = ".pdf"
+    if matching_files:
+        file_ext = os.path.splitext(matching_files[0])[1].lower()
+        
+    supabase_url = os.getenv("SUPABASE_URL")
+    if supabase_url:
+        public_url = f"{supabase_url}/storage/v1/object/public/VJTI_AI/{doc_id}{file_ext}"
+        return RedirectResponse(url=public_url)
     
     if not matching_files:
         raise HTTPException(status_code=404, detail="Document file not found on disk")

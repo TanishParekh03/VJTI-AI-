@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Send, Paperclip, Sparkles, GraduationCap, Zap,
   RefreshCw, CheckSquare, Map as MapIcon, Users, ChevronRight, PanelRight,
-  Mic, MicOff, FileText, Search
+  Mic, MicOff, FileText, Search, X, Loader2
 } from 'lucide-react'
 import { SUGGESTED_PROMPTS, type Message, type Conversation } from '@/lib/mock-data'
 import ChatSidebar from './ChatSidebar'
@@ -175,6 +175,10 @@ export default function ChatScreen() {
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef<any>(null)
+  const [attachedFileName, setAttachedFileName] = useState<string | null>(null)
+  const [attachedFileText, setAttachedFileText] = useState<string | null>(null)
+  const [isExtractingFile, setIsExtractingFile] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -335,14 +339,20 @@ export default function ChatScreen() {
 
   // ── Send message ───────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || isThinking) return
+    if ((!text.trim() && !attachedFileText) || isThinking || isExtractingFile) return
 
     const userMsg: Message = {
       id: `msg-${Date.now()}`,
       role: 'user',
-      content: text.trim(),
+      content: text.trim() || 'Uploaded a file for analysis',
       timestamp: new Date(),
     }
+    
+    // Store attachments locally and immediately clear UI state
+    const currentAttachedFileName = attachedFileName;
+    const currentAttachedFileText = attachedFileText;
+    setAttachedFileName(null);
+    setAttachedFileText(null);
 
     // Optimistically add user message
     let convId = currentConvId
@@ -385,10 +395,11 @@ export default function ChatScreen() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          message: text.trim(),
+          message: text.trim() || `Analyze the attached file: ${currentAttachedFileName}`,
           conversation_id: payloadConvId,
           language: i18n.language,
           mode: chatMode,
+          attached_file_text: currentAttachedFileText,
         }),
       })
 
@@ -500,7 +511,7 @@ export default function ChatScreen() {
       isStreamingRef.current = false
       showToast('Connection error. Is the backend server running?')
     }
-  }, [currentConvId, isThinking, showToast])
+  }, [currentConvId, isThinking, showToast, attachedFileName, attachedFileText, isExtractingFile, chatMode, i18n.language])
 
   const handleInputKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -622,9 +633,65 @@ export default function ChatScreen() {
         {/* Input bar */}
         <div className="px-4 pb-4 pt-3 border-t border-border bg-background shrink-0">
           <div className="max-w-2xl mx-auto">
+            {attachedFileName && (
+              <div className="mb-2 flex items-center gap-2">
+                <div className="inline-flex items-center gap-2 bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-full text-sm font-medium">
+                  <Paperclip className="w-4 h-4" />
+                  <span className="max-w-[200px] truncate">{attachedFileName}</span>
+                  <button 
+                    onClick={() => { setAttachedFileName(null); setAttachedFileText(null); }}
+                    className="p-0.5 hover:bg-primary/20 rounded-full transition-colors ml-1"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="flex items-end gap-2 px-3 py-2 rounded-2xl border border-input bg-card shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-ring" style={{ transition: 'all 0.18s ease' }}>
-              <div className="shrink-0 mb-3 ml-1 text-muted-foreground">
-                <Search className="w-5 h-5 text-muted-foreground/70" />
+              <div className="shrink-0 mb-3 ml-1 text-muted-foreground flex gap-1">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isExtractingFile}
+                  className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
+                  title="Attach file"
+                >
+                  {isExtractingFile ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Paperclip className="w-4 h-4 text-muted-foreground/70" />}
+                </button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef}
+                  className="hidden" 
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    setIsExtractingFile(true)
+                    setAttachedFileName(file.name)
+                    try {
+                      const formData = new FormData()
+                      formData.append('file', file)
+                      const token = getAuthToken()
+                      const res = await fetch(`${API_BASE}/chat/extract-file`, {
+                        method: 'POST',
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                        body: formData,
+                      })
+                      if (res.ok) {
+                        const data = await res.json()
+                        setAttachedFileText(data.extracted_text)
+                        showToast(`Attached ${file.name}`)
+                      } else {
+                        setAttachedFileName(null)
+                        showToast("Failed to extract file")
+                      }
+                    } catch (err) {
+                      setAttachedFileName(null)
+                      showToast("Error uploading file")
+                    } finally {
+                      setIsExtractingFile(false)
+                      if (fileInputRef.current) fileInputRef.current.value = ''
+                    }
+                  }}
+                />
               </div>
               <textarea
                 ref={textareaRef}
@@ -648,10 +715,10 @@ export default function ChatScreen() {
               </button>
               <button
                 onClick={() => sendMessage(input)}
-                disabled={!input.trim() || isThinking}
+                disabled={(!input.trim() && !attachedFileName) || isThinking || isExtractingFile}
                 className={cn(
                   'shrink-0 w-10 h-10 rounded-xl flex items-center justify-center mb-1.5',
-                  input.trim() && !isThinking
+                  (input.trim() || attachedFileName) && !isThinking && !isExtractingFile
                     ? 'bg-primary text-primary-foreground hover:opacity-90'
                     : 'bg-muted text-muted-foreground cursor-not-allowed'
                 )}

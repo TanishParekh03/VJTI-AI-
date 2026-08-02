@@ -144,6 +144,7 @@ async def run_rag_pipeline(
     language: str | None = None,
     mode: str = "grounded",
     report_prompt: str | None = None,
+    attached_file_text: str | None = None,
 ) -> AsyncGenerator[str, None]:
     """
     Full RAG pipeline as an async SSE generator.
@@ -271,7 +272,9 @@ async def run_rag_pipeline(
         above_threshold = [
             r for r in search_results if r.relevance_score >= threshold
         ]
-        if not above_threshold:
+        
+        # If user attached a file, they can ask questions about it even if Qdrant finds nothing.
+        if not above_threshold and not attached_file_text:
             logger.info(
                 "rag_not_found",
                 extra={
@@ -314,6 +317,13 @@ async def run_rag_pipeline(
 
         # ── Step 5: Assemble strict grounded system prompt ────────────────────
         system_prompt = _build_system_prompt(above_threshold, language)
+        
+        if attached_file_text:
+            system_prompt += f"\n\n=========================================\n"
+            system_prompt += f"USER ATTACHED FILE CONTENT:\n{attached_file_text}\n"
+            system_prompt += f"=========================================\n"
+            system_prompt += f"Treat this attached file as highly relevant verified context.\n"
+            
         user_content = report_prompt if report_prompt else message_text
         llm_messages: list[dict[str, str]] = [
             {"role": "system", "content": system_prompt},
@@ -330,8 +340,8 @@ async def run_rag_pipeline(
         llm_latency_ms = (time.monotonic() - llm_start) * 1000
 
         # ── Compute confidence from top Supermemory relevance score ────────────
-        top_score = above_threshold[0].relevance_score
-        confidence_label = _score_to_confidence(top_score)
+        top_score = above_threshold[0].relevance_score if above_threshold else 0.99
+        confidence_label = _score_to_confidence(top_score) if above_threshold else "high"
 
         # ── Build sources payload matching frontend Source interface ───────────
         sources_payload = [

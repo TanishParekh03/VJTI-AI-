@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { FileText, ArrowRight, ArrowLeft, ArrowRightLeft, Search, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FileText, ArrowRight, ArrowLeft, ArrowRightLeft, Search, Loader2, Maximize2, Minimize2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LineageNode {
@@ -47,6 +47,7 @@ export function GRTimeline({ docId }: { docId: string }) {
   const [data, setData] = useState<LineageGraph | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMaximized, setIsMaximized] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -107,18 +108,28 @@ export function GRTimeline({ docId }: { docId: string }) {
   // Let's sort nodes by their upload_date if available, or just put target nodes on left, source on right.
   const nodeMap = new Map(data.nodes.map(n => [n.id, n]));
   
-  return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="p-4 border-b border-border bg-muted/20">
+  const content = (
+    <>
+      <div className="p-4 border-b border-border bg-muted/20 flex items-center justify-between">
         <h3 className="font-medium text-sm flex items-center gap-2">
           <ArrowRightLeft className="w-4 h-4 text-primary" />
           Policy Lineage Graph
         </h3>
+        <button 
+          onClick={() => setIsMaximized(!isMaximized)}
+          className="p-1.5 hover:bg-background rounded-md text-muted-foreground hover:text-foreground transition-colors"
+          title={isMaximized ? "Minimize" : "Maximize"}
+        >
+          {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+        </button>
       </div>
       
       <div 
         ref={containerRef}
-        className="p-6 overflow-x-auto custom-scrollbar relative min-h-[300px] flex items-center gap-12"
+        className={cn(
+          "p-6 overflow-x-auto custom-scrollbar relative flex items-center gap-12",
+          isMaximized ? "h-[calc(100vh-120px)] items-start pt-12" : "min-h-[300px]"
+        )}
       >
         {/* Render edges */}
         <div className="flex gap-8 items-stretch w-full pb-4">
@@ -210,6 +221,40 @@ export function GRTimeline({ docId }: { docId: string }) {
           })}
         </div>
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Inline View */}
+      {!isMaximized && (
+        <div className="rounded-xl border border-border bg-card overflow-hidden">
+          {content}
+        </div>
+      )}
+
+      {/* Maximized Modal View */}
+      <AnimatePresence>
+        {isMaximized && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-12">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+              onClick={() => setIsMaximized(false)}
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full h-full max-w-7xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+            >
+              {content}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

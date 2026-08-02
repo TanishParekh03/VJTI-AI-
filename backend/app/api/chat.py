@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +32,25 @@ from app.schemas.chat import (
 from app.services.rag_pipeline import run_rag_pipeline
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+@router.post("/extract-file")
+async def extract_chat_file(
+    user: CurrentUser,
+    file: UploadFile = File(...),
+) -> dict:
+    """
+    Fast, lightweight endpoint to extract text from a file uploaded directly in the chat.
+    Bypasses Qdrant and Supabase for immediate AI context.
+    """
+    from app.api.documents import _extract_text_from_file_bytes
+    
+    file_bytes = await file.read()
+    if len(file_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 50MB)")
+        
+    text = _extract_text_from_file_bytes(file_bytes, file.filename or "")
+    return {"filename": file.filename, "extracted_text": text}
 
 
 @router.post("/stream")
@@ -54,6 +73,7 @@ async def chat_stream(
             language=body.language,
             mode=body.mode,
             report_prompt=body.report_prompt,
+            attached_file_text=body.attached_file_text,
             db=db,
         ):
             # If client disconnected, stop generating

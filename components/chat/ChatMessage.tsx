@@ -5,9 +5,7 @@ import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
-  Copy, Bookmark, BookmarkCheck, RotateCcw, Download,
-  ChevronDown, ChevronUp, CheckCircle2, AlertCircle, HelpCircle,
-  Sparkles, ThumbsUp, ThumbsDown, Volume2, VolumeX, FileText, FileDown
+  ThumbsUp, ThumbsDown, Copy, Check, Sparkles, ChevronDown, ChevronUp, FileText, Download, Printer, Bookmark, BookmarkCheck, RotateCcw, AlertCircle, HelpCircle, Volume2, VolumeX, FileDown, CheckCircle2
 } from 'lucide-react'
 import type { Message } from '@/lib/mock-data'
 import SourceCard from './SourceCard'
@@ -83,7 +81,6 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
   }
 
   const handleExport = () => {
-    // Build a neat memo-style text document
     const now = new Date()
     const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })
     const timeStr = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
@@ -130,9 +127,65 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content)
-    onCopy?.(message.content)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank', 'width=800,height=800')
+    if (!printWindow) return
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Government of Maharashtra - AI Report</title>
+          <style>
+            body { font-family: 'Times New Roman', Times, serif; line-height: 1.6; padding: 40px; color: #000; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 20px; }
+            .header h1 { margin: 5px 0; font-size: 24px; font-weight: bold; }
+            .header h2 { margin: 5px 0; font-size: 18px; font-weight: normal; }
+            .header p { margin: 5px 0; font-size: 14px; color: #444; }
+            .content { margin-top: 20px; font-size: 15px; }
+            .content h3 { font-size: 18px; font-weight: bold; margin-top: 20px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+            .content p { margin-bottom: 15px; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            @media print {
+              body { padding: 0; margin: 2cm; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>GOVERNMENT OF MAHARASHTRA</h1>
+            <h2>Higher & Technical Education Department</h2>
+            <p>Official AI Assistant Generated Report</p>
+            <p>Date: ${new Date().toLocaleDateString('en-IN')}</p>
+          </div>
+          <div class="content">
+            ${message.content
+              .replace(/### (.*?)\n/g, '<h3>$1</h3>')
+              .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+              .replace(/\*(.*?)\*/g, '<em>$1</em>')
+              .replace(/\n\n/g, '</p><p>')
+              .replace(/^/g, '<p>')
+              .replace(/$/g, '</p>')
+            }
+          </div>
+          <script>
+            window.onload = () => {
+              window.print();
+              setTimeout(() => window.close(), 500);
+            }
+          </script>
+        </body>
+      </html>
+    `
+    printWindow.document.open()
+    printWindow.document.write(htmlContent)
+    printWindow.document.close()
   }
 
   const handleBookmark = () => {
@@ -142,7 +195,6 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
 
   const handleFeedback = async (value: 'helpful' | 'not_helpful') => {
     if (feedbackLoading) return
-    // Toggle off if clicking the same one
     const newValue = feedback === value ? null : value
     setFeedback(newValue)
     setFeedbackLoading(true)
@@ -157,7 +209,6 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
         body: JSON.stringify({ feedback: newValue }),
       })
     } catch {
-      // Revert on error
       setFeedback(feedback)
     } finally {
       setFeedbackLoading(false)
@@ -262,6 +313,22 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
             title={isSpeaking ? "Stop speaking" : "Read aloud"}
           >
             {isSpeaking ? <VolumeX className="w-3.5 h-3.5 text-primary" /> : <Volume2 className="w-3.5 h-3.5" />}
+          </button>
+          
+          <button
+            onClick={handleCopy}
+            className="flex items-center justify-center w-8 h-8 rounded border border-transparent hover:bg-muted/50 hover:border-border transition-all text-muted-foreground"
+            title="Copy to clipboard"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
+          
+          <button
+            onClick={handlePrint}
+            className="flex items-center justify-center w-8 h-8 rounded border border-transparent hover:bg-muted/50 hover:border-border transition-all text-muted-foreground"
+            title="Print as Official PDF"
+          >
+            <Printer className="w-3.5 h-3.5" />
           </button>
           
           <button
