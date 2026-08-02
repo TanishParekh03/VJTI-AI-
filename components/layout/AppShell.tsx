@@ -75,10 +75,10 @@ function Topbar({
         {/* Logo */}
         <button onClick={() => onNavigate('chat')} className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-[#1a73e8] flex items-center justify-center shadow-sm">
-            <span className="text-white font-bold text-sm tracking-wide">HTE</span>
+            <span className="text-white font-bold text-sm tracking-wide">VA</span>
           </div>
           <div className="hidden sm:block">
-            <p className="text-[15px] font-semibold text-[#202124] leading-tight">HTE KnowledgeBase</p>
+            <p className="text-[15px] font-semibold text-[#202124] leading-tight">Vachak Ai</p>
           </div>
         </button>
 
@@ -196,7 +196,10 @@ function MobileSidebar({
                 <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center">
                   <Sparkles className="w-4 h-4 text-primary-foreground" />
                 </div>
-                <span className="font-bold text-foreground">HTE AI</span>
+                <div className="flex flex-col">
+                  <span className="font-bold text-foreground">Vachak Ai</span>
+                  <span className="text-xs text-muted-foreground">Admin Access</span>
+                </div>
               </div>
               <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                 <X className="w-4 h-4" />

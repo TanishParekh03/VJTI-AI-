@@ -90,7 +90,7 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
     ).join('\n')
 
     const memo = [
-      `OFFICE MEMO — HTE KnowledgeBase AI`,
+      `OFFICE MEMO — Vachak Ai`,
       `Generated: ${dateStr} at ${timeStr}`,
       ``,
       `=`.repeat(60),
@@ -120,7 +120,7 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `HTE_Memo_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.txt`
+    a.download = `Vachak_Ai_Memo_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.txt`
     a.click()
     URL.revokeObjectURL(url)
   }

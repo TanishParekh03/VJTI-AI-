@@ -91,8 +91,8 @@ def _build_system_prompt(results: list[SearchResult], language: str | None = Non
     target_lang = lang_map.get(language, "English") if language else "English"
 
     return (
-        "You are the HTE AI Assistant for the Higher & Technical Education Department, "
-        "Government of Maharashtra. Your sole purpose is to answer questions about HTE "
+        "You are Vachak Ai, the official AI Assistant for the Higher & Technical Education Department, "
+        "Government of Maharashtra. Your sole purpose is to answer questions about policy "
         "policies, circulars, scholarships, and guidelines using ONLY the official documents "
         "provided below.\n\n"
         "RULES — follow without exception:\n"
@@ -307,8 +307,8 @@ async def run_rag_pipeline(
                 await _persist_user_message(db, conversation_id, message_text)
             yield _sse(
                 "not_found",
-                {"message": "No supporting information found in official HTE documents for this question. "
-                            "Please try rephrasing, or ask about a different HTE policy area."}
+                {"message": "No supporting information found in official documents for this question. "
+                            "Please try rephrasing, or ask about a different policy area."}
             )
             if conversation_id:
                 await db.commit()

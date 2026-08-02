@@ -35,9 +35,9 @@ class Settings(BaseSettings):
     qdrant_api_key: str = ""
 
     # ── LLM ───────────────────────────────────────────────────────────────────
-    llm_provider: Literal["gemini", "openai"] = "gemini"
-    gemini_api_key: str = ""
-    gemini_model: str = "models/gemini-flash-latest"
+    llm_provider: Literal["maha_ai", "openai"] = "maha_ai"
+    maha_ai_api_key: str = ""
+    maha_ai_model: str = "maha-ai-v1-fast"
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
 

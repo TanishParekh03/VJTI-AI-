@@ -13,7 +13,7 @@ interface Props {
 
 const TECH_STACK = [
   { category: 'RAG Pipeline', items: ['HyDE (Hypothetical Document Embeddings)', 'Query Decomposition', 'Hybrid Dense + Sparse Search', 'Reciprocal Rank Fusion (RRF)', 'Metadata Pre-filtering'], icon: Brain, color: 'text-violet-600 bg-violet-50 border-violet-200' },
-  { category: 'LLM & AI', items: ['Google Gemini Flash / Pro', 'Grounded Retrieval Mode', 'Bilingual EN + Marathi', 'Supersession Detection', 'Confidence Badge Scoring'], icon: Sparkles, color: 'text-blue-600 bg-blue-50 border-blue-200' },
+  { category: 'LLM & AI', items: ['Maha-AI Fast / Pro (Local)', 'Grounded Retrieval Mode', 'Bilingual EN + Marathi', 'Supersession Detection', 'Confidence Badge Scoring'], icon: Sparkles, color: 'text-blue-600 bg-blue-50 border-blue-200' },
   { category: 'Vector Database', items: ['Qdrant — fully on-premise', 'Dense vectors (text-embedding-3)', 'Sparse vectors (BM25)', 'Payload filters for departments', 'Collection-based tenancy'], icon: Database, color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
   { category: 'Ingestion', items: ['Tesseract OCR (EN + MR)', 'pypdf for digital PDFs', 'Marathi → English translation', 'Automatic AI summarisation', 'Applicability tagging'], icon: Layers, color: 'text-amber-600 bg-amber-50 border-amber-200' },
   { category: 'Backend', items: ['FastAPI (Python)', 'PostgreSQL + Alembic', 'SQLAlchemy async ORM', 'JWT Authentication', 'Audit Log (Explainability)'], icon: Server, color: 'text-rose-600 bg-rose-50 border-rose-200' },
@@ -71,12 +71,12 @@ export default function AboutPage({ onNavigate }: Props) {
             className="flex items-center gap-5 mb-8"
           >
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 shadow-[0_0_40px_rgba(79,70,229,0.3)] backdrop-blur-xl flex items-center justify-center">
-              <span className="text-white font-black text-2xl tracking-wide">HTE</span>
+              <span className="text-white font-black text-2xl tracking-wide">VA</span>
             </div>
             <div>
               <p className="text-indigo-400 text-xs font-bold uppercase tracking-[0.2em] mb-1.5">Government of Maharashtra</p>
               <h1 className="text-white font-black text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-tight">
-                HTE KnowledgeBase <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">AI</span>
+                Vachak <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">Ai</span>
               </h1>
             </div>
           </motion.div>
@@ -111,7 +111,7 @@ export default function AboutPage({ onNavigate }: Props) {
               Maharashtra's Higher & Technical Education department administers thousands of Government Resolutions, circulars, and policy orders. Officers, faculty, institutions, and students waste countless hours manually searching through stacks of PDFs to find a single eligibility criterion or deadline.
             </p>
             <p>
-              <strong className="text-gray-900 font-semibold">HTE KnowledgeBase</strong> changes that entirely. Using a state-of-the-art Retrieval-Augmented Generation pipeline, anyone can ask natural-language questions — in English or Marathi — and receive precise, source-cited answers grounded exclusively in official government documents, in seconds.
+              <strong className="text-gray-900 font-semibold">Vachak Ai</strong> changes that entirely. Using a state-of-the-art Retrieval-Augmented Generation pipeline, anyone can ask natural-language questions — in English or Marathi — and receive precise, source-cited answers grounded exclusively in official government documents, in seconds.
             </p>
           </div>
         </motion.div>

@@ -4,7 +4,7 @@ LLM Service — Provider-Agnostic Streaming Wrapper
 ALL LLM provider calls live here and ONLY here.
 No other module imports google.generativeai or openai directly.
 
-The active provider is selected by the LLM_PROVIDER env var (default: "gemini").
+The active provider is selected by the LLM_PROVIDER env var (default: "maha_ai").
 """
 from __future__ import annotations
 
@@ -23,20 +23,20 @@ LLMMessage = dict[str, str]  # {"role": "user"|"model"|"system", "content": str}
 
 # ── Provider implementations ──────────────────────────────────────────────────
 
-class _GeminiProvider:
-    """Google Gemini streaming provider."""
+class _MahaAIProvider:
+    """Maha-AI (Local/Gov) streaming provider."""
 
     def __init__(self) -> None:
         import google.generativeai as genai  # type: ignore[import]
 
-        if not settings.gemini_api_key:
+        if not settings.maha_ai_api_key:
             raise RuntimeError(
-                "GEMINI_API_KEY is not set. Add it to your .env file."
+                "MAHA_AI_API_KEY is not set. Add it to your .env file."
             )
-        genai.configure(api_key=settings.gemini_api_key)
+        genai.configure(api_key=settings.maha_ai_api_key)
         self._genai = genai
-        self._model_name = settings.gemini_model
-        logger.info("llm_provider_initialized", extra={"provider": "gemini", "model": self._model_name})
+        self._model_name = settings.maha_ai_model
+        logger.info("llm_provider_initialized", extra={"provider": "maha_ai", "model": self._model_name})
 
     async def generate(
         self,
@@ -146,9 +146,9 @@ class _OpenAIProvider:
 # NOTE: Not cached — always creates fresh provider so .env changes take effect
 # without a full server restart.
 
-def _get_provider() -> _GeminiProvider | _OpenAIProvider:
-    if settings.llm_provider == "gemini":
-        return _GeminiProvider()
+def _get_provider() -> _MahaAIProvider | _OpenAIProvider:
+    if settings.llm_provider == "maha_ai":
+        return _MahaAIProvider()
     return _OpenAIProvider()
 
 

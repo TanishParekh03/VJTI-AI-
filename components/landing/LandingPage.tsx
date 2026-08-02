@@ -106,11 +106,11 @@ function AboutModal({ onClose }: { onClose: () => void }) {
           </button>
           <div className="relative flex items-center gap-4 mb-5">
             <div className="w-14 h-14 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center">
-              <span className="text-white font-bold text-xl">HTE</span>
+              <span className="text-white font-bold text-xl">VA</span>
             </div>
             <div>
               <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">Maharashtra Government</p>
-              <h2 className="text-white font-bold text-xl">HTE KnowledgeBase AI</h2>
+              <h2 className="text-white font-bold text-xl">Vachak Ai</h2>
             </div>
           </div>
           <p className="relative text-white/80 text-sm leading-relaxed max-w-lg">
@@ -124,7 +124,7 @@ function AboutModal({ onClose }: { onClose: () => void }) {
           <div>
             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-3">Our Mission</h3>
             <p className="text-gray-600 text-sm leading-relaxed">
-              Maharashtra's Higher & Technical Education department manages thousands of Government Resolutions, circulars, and policy documents. Officers, faculty, and students waste hours searching through PDFs. HTE KnowledgeBase changes that — letting anyone ask natural language questions and get precise, source-cited answers in seconds.
+              Maharashtra's Higher & Technical Education department manages thousands of Government Resolutions, circulars, and policy documents. Officers, faculty, and students waste hours searching through PDFs. Vachak Ai changes that — letting anyone ask natural language questions and get precise, source-cited answers in seconds.
             </p>
           </div>
 
@@ -134,7 +134,7 @@ function AboutModal({ onClose }: { onClose: () => void }) {
             <div className="grid grid-cols-2 gap-2.5">
               {[
                 ['RAG Pipeline', 'HyDE + Query Decomposition + Hybrid Search'],
-                ['LLM', 'Google Gemini (grounded mode)'],
+                ['LLM', 'Maha-AI (local secure model)'],
                 ['Vector DB', 'Qdrant — fully local, on-premise'],
                 ['Ingestion', 'Multimodal OCR · English + Marathi'],
                 ['Backend', 'FastAPI + PostgreSQL + Alembic'],
@@ -228,12 +228,12 @@ export default function LandingPage({ onLogin }: Props) {
         {/* ── Nav bar ─────────────────────────────────────────────── */}
         <nav className="sticky top-0 z-20 flex items-center justify-between px-6 sm:px-10 h-16 bg-white/90 backdrop-blur border-b border-gray-100 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shadow">
-              <span className="text-white font-bold text-sm">HTE</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-500/20">
+              <span className="text-white font-bold text-sm">VA</span>
             </div>
-            <div className="hidden sm:block">
-              <p className="font-semibold text-gray-900 text-[15px] leading-tight">HTE KnowledgeBase</p>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Maharashtra Government</p>
+            <div>
+              <p className="font-semibold text-gray-900 text-[15px] leading-tight">Vachak Ai</p>
+              <p className="text-xs text-gray-500 font-medium tracking-wide uppercase">Maharashtra Gov</p>
             </div>
           </div>
 
@@ -470,7 +470,7 @@ export default function LandingPage({ onLogin }: Props) {
 
         {/* Footer */}
         <footer className="border-t border-gray-100 py-5 px-6 text-center text-xs text-gray-400">
-          © 2025 HTE KnowledgeBase · Maharashtra Government Higher & Technical Education Department ·{' '}
+          © 2025 Vachak Ai · Maharashtra Government Higher & Technical Education Department ·{' '}
           <button onClick={() => setAboutOpen(true)} className="text-indigo-500 hover:underline">About Us</button>
         </footer>
       </div>

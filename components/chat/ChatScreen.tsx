@@ -88,7 +88,7 @@ function EmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
         className="text-center w-full max-w-3xl mb-8"
       >
         <h1 className="text-4xl sm:text-5xl font-bold text-foreground mb-4 tracking-[-0.03em] leading-tight text-balance">
-          Ask anything about HTE policies, circulars & guidelines
+          Ask anything about Maharashtra government policies, circulars & guidelines
         </h1>
         <p className="text-muted-foreground text-[17px] mb-8">
           Answers grounded in official documents.
@@ -453,7 +453,7 @@ export default function ChatScreen() {
                 const score: number = data.confidence ?? 0
                 finalConfidence = score >= 0.70 ? 'high' : score >= 0.40 ? 'medium' : 'none'
               } else if (currentEvent === 'not_found') {
-                accumulated = data.message ?? 'No supporting information found in official HTE documents.'
+                accumulated = data.message ?? 'No supporting information found in official documents.'
                 setStreamingText(accumulated)
               } else if (currentEvent === 'error') {
                 accumulated = `⚠️ ${data.message ?? 'An error occurred. Please try again.'}`
