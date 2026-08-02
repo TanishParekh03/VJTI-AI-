@@ -24,38 +24,56 @@ The platform uses a modern, decoupled architecture designed for high throughput 
 
 ```mermaid
 graph TD
-    %% Define Styles
-    classDef client fill:#f8f9fc,stroke:#1a73e8,stroke-width:2px,color:#1a73e8;
-    classDef backend fill:#fdf8ec,stroke:#fbbc05,stroke-width:2px,color:#b07b00;
-    classDef db fill:#fce8e6,stroke:#ea4335,stroke-width:2px,color:#c5221f;
-    classDef ai fill:#e6f4ea,stroke:#34a853,stroke-width:2px,color:#137333;
+    %% Define Styles: White BG, Black Text, Colorful Strokes
+    classDef default fill:#ffffff,stroke:#64748b,stroke-width:2px,color:#000000;
+    classDef client fill:#ffffff,stroke:#3b82f6,stroke-width:3px,color:#000000,rx:8px,ry:8px;
+    classDef backend fill:#ffffff,stroke:#f59e0b,stroke-width:3px,color:#000000,rx:8px,ry:8px;
+    classDef db fill:#ffffff,stroke:#ef4444,stroke-width:3px,color:#000000,rx:8px,ry:8px;
+    classDef ai fill:#ffffff,stroke:#10b981,stroke-width:3px,color:#000000,rx:8px,ry:8px;
+    classDef feature fill:#f8fafc,stroke:#8b5cf6,stroke-width:2px,stroke-dasharray: 4 4,color:#000000,rx:8px,ry:8px;
 
-    %% Components
+    %% User & Client Layer
     User[👤 End User / Officer]:::client
     UI[🖥️ Next.js Frontend\nReact, TailwindCSS]:::client
+    Speech[🎤 Speech-to-Text &\n🔊 Text-to-Speech\n(mr-IN, hi-IN, en-US)]:::feature
     
+    %% Backend Orchestration
     API[⚙️ FastAPI Backend\nAuth, Rate Limiting, Orch.]:::backend
-    RAG[🧠 RAG Pipeline\nHyDE, Decomposition, Hybrid Search]:::backend
+    Trans[🌐 Dynamic Multilingual\nTranslation Service]:::feature
     
-    PG[(🐘 PostgreSQL\nUsers, Chat History, Audit)]:::db
-    QD[(🎯 Qdrant\nVector Embeddings)]:::db
+    subgraph RAG_Pipeline [🧠 Advanced RAG Pipeline]
+        style RAG_Pipeline fill:#f8fafc,stroke:#cbd5e1,stroke-width:2px,color:#000000,rx:8px,ry:8px
+        Decomp[🧩 Query Decomposition\nSplit complex queries]:::backend
+        HyDE[💡 HyDE\nGenerate Hypothetical Doc]:::backend
+        Hybrid[🎯 Hybrid Search\nDense + Sparse Vectors]:::backend
+    end
     
-    LLM((🤖 Google Gemini\nFlash/Pro LLM)):::ai
-    Emb((🔢 FastEmbed\nEmbedding Model)):::ai
+    %% Databases
+    PG[(🐘 PostgreSQL\nUsers, Docs, Audit, Lineage)]:::db
+    QD[(🎯 Qdrant\nLocal Vector Storage)]:::db
+    
+    %% AI Models
+    LLM((🤖 Maha-AI / Gemini\nFlash LLM Gateway)):::ai
+    Emb((🔢 FastEmbed\nEmbedding Model BM25)):::ai
 
     %% Connections
-    User -->|Prompts / UI clicks| UI
-    UI -->|REST API / SSE| API
+    User -->|Voice / Text Prompts| UI
+    UI --- Speech
+    UI -->|REST API / SSE Streams| API
     
-    API <-->|Auth & Metadata| PG
-    API <--> RAG
+    API <-->|Check Auth / Load Metadata| PG
+    API -->|Translate Document Summaries| Trans
+    Trans -.-> LLM
     
-    RAG -->|1. Generate HyDE / Decompose| LLM
-    RAG -->|2. Embed Queries| Emb
-    RAG -->|3. Hybrid Search| QD
-    RAG -->|4. Synthesis| LLM
+    API --> Decomp
+    Decomp --> HyDE
+    HyDE -->|Augmented Context| Hybrid
     
-    LLM -.->|Streaming Response| API
+    Hybrid -->|1. Vectorize Query| Emb
+    Hybrid -->|2. Exact Match| QD
+    Hybrid -->|3. Retrieve Top Chunks| LLM
+    
+    LLM -.->|Synthesise & Cite Sources| API
     API -.->|Server-Sent Events| UI
 ```
 

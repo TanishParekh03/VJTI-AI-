@@ -10,6 +10,7 @@ import {
   AlertCircle, ChevronDown, Plus, Trash2, FileDown, BarChart2,
   Layers, ShieldCheck, Printer
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   onNavigate: (screen: any) => void
@@ -24,43 +25,13 @@ function getAuthToken(): string | null {
 
 type ReportType = 'policy_summary' | 'compliance_checklist' | 'gr_comparison' | 'department_overview'
 
-const REPORT_TYPES: { id: ReportType; label: string; desc: string; icon: any; color: string }[] = [
-  {
-    id: 'policy_summary',
-    label: 'Policy Summary Report',
-    desc: 'Generate a comprehensive summary of policies on a given topic from multiple GRs.',
-    icon: BookOpen,
-    color: 'border-blue-200 bg-blue-50 text-blue-700',
-  },
-  {
-    id: 'compliance_checklist',
-    label: 'Compliance Checklist',
-    desc: 'Extract actionable deadlines, required forms, and eligibility criteria from GRs.',
-    icon: CheckCircle2,
-    color: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  },
-  {
-    id: 'gr_comparison',
-    label: 'GR Comparison Report',
-    desc: 'Compare two or more GRs side-by-side to identify conflicts, amendments, and supersessions.',
-    icon: BarChart2,
-    color: 'border-violet-200 bg-violet-50 text-violet-700',
-  },
-  {
-    id: 'department_overview',
-    label: 'Department Policy Overview',
-    desc: 'Summarise all recent GRs for a specific department within a date range.',
-    icon: Building2,
-    color: 'border-amber-200 bg-amber-50 text-amber-700',
-  },
-]
-
 const DEPARTMENTS = [
   'Higher & Technical Education', 'Pharmacy', 'Engineering', 'Architecture',
   'Management', 'Polytechnic', 'Art & Design', 'Medical', 'Agriculture', 'Law',
 ]
 
 export default function ReportsPage({ onNavigate }: Props) {
+  const { t } = useTranslation()
   const [selectedType, setSelectedType] = useState<ReportType>('policy_summary')
   const [topic, setTopic] = useState('')
   const [department, setDepartment] = useState('')
@@ -72,6 +43,37 @@ export default function ReportsPage({ onNavigate }: Props) {
   const [reportContent, setReportContent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const reportRef = useRef<HTMLDivElement>(null)
+
+  const REPORT_TYPES: { id: ReportType; label: string; desc: string; icon: any; color: string }[] = [
+    {
+      id: 'policy_summary',
+      label: t('reports.policy_summary_label'),
+      desc: t('reports.policy_summary_desc'),
+      icon: BookOpen,
+      color: 'border-blue-200 bg-blue-50 text-blue-700',
+    },
+    {
+      id: 'compliance_checklist',
+      label: t('reports.compliance_label'),
+      desc: t('reports.compliance_desc'),
+      icon: CheckCircle2,
+      color: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    },
+    {
+      id: 'gr_comparison',
+      label: t('reports.gr_comparison_label'),
+      desc: t('reports.gr_comparison_desc'),
+      icon: BarChart2,
+      color: 'border-violet-200 bg-violet-50 text-violet-700',
+    },
+    {
+      id: 'department_overview',
+      label: t('reports.dept_overview_label'),
+      desc: t('reports.dept_overview_desc'),
+      icon: Building2,
+      color: 'border-amber-200 bg-amber-50 text-amber-700',
+    },
+  ]
 
   const addGrNumber = () => setGrNumbers((prev) => [...prev, ''])
   const removeGrNumber = (i: number) => setGrNumbers((prev) => prev.filter((_, idx) => idx !== i))
@@ -160,7 +162,7 @@ ${langNote}`
 
   const handleGenerate = async () => {
     if (!topic && selectedType !== 'gr_comparison' && !department) {
-      setError('Please fill in the topic or department field.')
+      setError(t('reports.fill_topic_error'))
       return
     }
     setError(null)
@@ -300,15 +302,15 @@ ${langNote}`
             className="flex items-center gap-1.5 text-gray-400 hover:text-gray-700 text-sm mb-4 transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Back
+            {t('reports.back')}
           </button>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center">
               <FileText className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="font-bold text-gray-900 text-lg leading-tight">Report Generator</h1>
-              <p className="text-gray-400 text-xs">AI-generated government policy reports</p>
+              <h1 className="font-bold text-gray-900 text-lg leading-tight">{t('reports.report_generator')}</h1>
+              <p className="text-gray-400 text-xs">{t('reports.report_generator_desc')}</p>
             </div>
           </div>
         </div>
@@ -316,7 +318,7 @@ ${langNote}`
         <div className="flex-1 p-6 space-y-5">
           {/* Report Type */}
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2.5">Report Type</label>
+            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-2.5">{t('reports.report_type')}</label>
             <div className="space-y-2">
               {REPORT_TYPES.map((rt) => (
                 <button
@@ -347,7 +349,7 @@ ${langNote}`
           {/* Topic / query */}
           <div>
             <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-              {selectedType === 'gr_comparison' ? 'Comparison Topic' : 'Topic / Keyword'}
+              {selectedType === 'gr_comparison' ? t('reports.comparison_topic') : t('reports.topic_keyword')}
             </label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
@@ -356,9 +358,9 @@ ${langNote}`
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder={
-                  selectedType === 'compliance_checklist' ? 'e.g. Scholarship Application 2024' :
-                  selectedType === 'gr_comparison' ? 'e.g. Fee Regulation policy' :
-                  'e.g. State Merit Scholarship eligibility'
+                  selectedType === 'compliance_checklist' ? t('reports.placeholder_compliance') :
+                  selectedType === 'gr_comparison' ? t('reports.placeholder_comparison') :
+                  t('reports.placeholder_default')
                 }
                 className="w-full pl-9 pr-4 h-10 text-sm rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
               />
@@ -368,7 +370,7 @@ ${langNote}`
           {/* GR Numbers (for comparison type) */}
           {selectedType === 'gr_comparison' && (
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">GR Numbers to Compare</label>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">{t('reports.gr_numbers_compare')}</label>
               <div className="space-y-2">
                 {grNumbers.map((gr, i) => (
                   <div key={i} className="flex gap-2">
@@ -395,7 +397,7 @@ ${langNote}`
                     className="flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    Add another GR
+                    {t('reports.add_another_gr')}
                   </button>
                 )}
               </div>
@@ -405,7 +407,7 @@ ${langNote}`
           {/* Department */}
           <div>
             <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-              <Building2 className="w-3 h-3 inline mr-1" />Department (optional)
+              <Building2 className="w-3 h-3 inline mr-1" />{t('reports.department_optional')}
             </label>
             <div className="relative">
               <select
@@ -413,7 +415,7 @@ ${langNote}`
                 onChange={(e) => setDepartment(e.target.value)}
                 className="w-full h-10 pl-3 pr-8 text-sm rounded-xl border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent appearance-none"
               >
-                <option value="">All Departments</option>
+                <option value="">{t('reports.all_departments')}</option>
                 {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
@@ -424,7 +426,7 @@ ${langNote}`
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
-                <Calendar className="w-3 h-3 inline mr-1" />From Date
+                <Calendar className="w-3 h-3 inline mr-1" />{t('reports.from_date')}
               </label>
               <input
                 type="date"
@@ -434,7 +436,7 @@ ${langNote}`
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">To Date</label>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">{t('reports.to_date')}</label>
               <input
                 type="date"
                 value={toDate}
@@ -446,9 +448,9 @@ ${langNote}`
 
           {/* Language */}
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Output Language</label>
+            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">{t('reports.output_language')}</label>
             <div className="flex gap-2">
-              {[{ id: 'en', label: 'English' }, { id: 'mr', label: 'Marathi (मराठी)' }].map((l) => (
+              {[{ id: 'en', label: t('reports.english') }, { id: 'mr', label: t('reports.marathi') }].map((l) => (
                 <button
                   key={l.id}
                   onClick={() => setLanguage(l.id as 'en' | 'mr')}
@@ -483,12 +485,12 @@ ${langNote}`
             {generating ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin relative z-10" />
-                <span className="relative z-10 tracking-wide">Generating Report...</span>
+                <span className="relative z-10 tracking-wide">{t('reports.generating_report')}</span>
               </>
             ) : (
               <>
                 <Sparkles className="w-5 h-5 relative z-10 group-hover:scale-110 transition-transform" />
-                <span className="relative z-10 tracking-wide">Generate AI Report</span>
+                <span className="relative z-10 tracking-wide">{t('reports.generate_ai_report')}</span>
               </>
             )}
           </button>
@@ -507,16 +509,16 @@ ${langNote}`
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-indigo-600" />
             <span className="font-semibold text-gray-900 text-sm">
-              {reportContent ? REPORT_TYPES.find(r => r.id === selectedType)?.label : 'Report Output'}
+              {reportContent ? REPORT_TYPES.find(r => r.id === selectedType)?.label : t('reports.report_output')}
             </span>
             {reportContent && !generating && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
-                READY
+                {t('reports.ready')}
               </span>
             )}
             {generating && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 border border-amber-200 animate-pulse">
-                GENERATING
+                {t('reports.generating')}
               </span>
             )}
           </div>
@@ -541,7 +543,7 @@ ${langNote}`
                 className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50 shadow-sm text-xs font-semibold transition-colors ml-1"
               >
                 <Printer className="w-3.5 h-3.5" />
-                Print PDF
+                {t('reports.print_pdf')}
               </button>
             </div>
           )}
@@ -562,9 +564,9 @@ ${langNote}`
                   <div className="absolute inset-0 rounded-[2rem] bg-indigo-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
                   <FileText className="w-10 h-10 text-indigo-300 relative z-10 transition-transform duration-500 group-hover:scale-110" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2 tracking-tight">No Report Generated Yet</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2 tracking-tight">{t('reports.no_report_yet')}</h3>
                 <p className="text-gray-500 text-sm max-w-sm leading-relaxed">
-                  Configure the report parameters in the left panel, then click <strong>Generate AI Report</strong> to begin.
+                  {t('reports.no_report_desc')} <strong>{t('reports.no_report_cta')}</strong> {t('reports.no_report_suffix')}
                 </p>
                 <div className="mt-10 grid grid-cols-2 gap-3 max-w-lg w-full px-6">
                   {REPORT_TYPES.map((rt, i) => (
@@ -599,13 +601,13 @@ ${langNote}`
                         <span className="text-white font-black text-sm tracking-wider">VA</span>
                       </div>
                       <div>
-                        <p className="text-[10px] font-bold text-indigo-600/80 uppercase tracking-widest mb-0.5">Government of Maharashtra</p>
-                        <p className="text-base font-bold text-gray-900">KnowledgeBase AI Official Report</p>
+                        <p className="text-[10px] font-bold text-indigo-600/80 uppercase tracking-widest mb-0.5">{t('reports.gov_maharashtra')}</p>
+                        <p className="text-base font-bold text-gray-900">{t('reports.official_report')}</p>
                       </div>
                     </div>
                     <div className="text-right">
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-100 mb-1">
-                        <ShieldCheck className="w-3.5 h-3.5" /> Verified Context
+                        <ShieldCheck className="w-3.5 h-3.5" /> {t('reports.verified_context')}
                       </span>
                       <p className="text-xs text-gray-400 font-medium">
                         {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -641,7 +643,7 @@ ${langNote}`
                   {!generating && reportContent && (
                     <div className="mt-8 pt-4 border-t border-gray-100 flex items-center justify-between print:hidden">
                       <p className="text-[10px] text-gray-400 font-medium">
-                        Generated by Vachak Ai · Answers grounded in official Maharashtra GRs
+                        {t('reports.generated_by')}
                       </p>
                       <div className="flex gap-2">
                         <button onClick={handleDownloadTxt} className="flex items-center gap-1 text-xs text-gray-500 hover:text-indigo-600 transition-colors">
@@ -651,7 +653,7 @@ ${langNote}`
                           <Download className="w-3 h-3" /> .html
                         </button>
                         <button onClick={handlePrint} className="flex items-center gap-1 text-xs text-gray-700 hover:text-indigo-800 font-semibold transition-colors ml-2">
-                          <Printer className="w-3 h-3" /> Print PDF
+                          <Printer className="w-3 h-3" /> {t('reports.print_pdf')}
                         </button>
                       </div>
                     </div>

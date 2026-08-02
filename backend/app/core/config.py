@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     maha_ai_model: str = "maha-ai-v1-fast"
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
+    gemini_api_key: str = ""
 
     # ── Maha-SSO (stub) ───────────────────────────────────────────────────────
     maha_sso_client_id: str = ""

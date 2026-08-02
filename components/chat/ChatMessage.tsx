@@ -56,7 +56,7 @@ const ConfidenceBadge = ({ level }: { level: 'high' | 'medium' | 'none' }) => {
 }
 
 export default function ChatMessage({ message, onFollowUp, onBookmark, onRegenerate, onCopy }: Props) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [sourcesOpen, setSourcesOpen] = useState(false)
   const [copied, setCopied] = useState(false)
   const [bookmarked, setBookmarked] = useState(message.bookmarked ?? false)
@@ -74,6 +74,10 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
       setIsSpeaking(false)
     } else {
       const utterance = new SpeechSynthesisUtterance(message.content)
+      let langCode = 'en-US'
+      if (i18n.language === 'mr') langCode = 'mr-IN'
+      if (i18n.language === 'hi') langCode = 'hi-IN'
+      utterance.lang = langCode
       utterance.onend = () => setIsSpeaking(false)
       setIsSpeaking(true)
       window.speechSynthesis.speak(utterance)

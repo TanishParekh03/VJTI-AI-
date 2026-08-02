@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, ArrowRight, ArrowLeft, ArrowRightLeft, Search, Loader2, Maximize2, Minimize2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 interface LineageNode {
   id: string;
@@ -36,19 +37,20 @@ const relationshipColors = {
   references: 'border-zinc-500 text-zinc-600 bg-zinc-500/10',
 };
 
-const relationshipLabels = {
-  supersedes: 'Supersedes',
-  amends: 'Amends',
-  clarifies: 'Clarifies',
-  references: 'References',
-};
-
 export function GRTimeline({ docId }: { docId: string }) {
+  const { t } = useTranslation();
   const [data, setData] = useState<LineageGraph | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const relationshipLabels = {
+    supersedes: t('timeline.supersedes'),
+    amends: t('timeline.amends'),
+    clarifies: t('timeline.clarifies'),
+    references: t('timeline.references'),
+  };
 
   useEffect(() => {
     async function fetchLineage() {
@@ -76,7 +78,7 @@ export function GRTimeline({ docId }: { docId: string }) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-muted-foreground bg-muted/30 rounded-xl border border-border">
         <Loader2 className="w-6 h-6 animate-spin mb-2" />
-        <p className="text-sm">Analyzing policy lineage...</p>
+        <p className="text-sm">{t('timeline.analyzing_lineage')}</p>
       </div>
     );
   }
@@ -84,7 +86,7 @@ export function GRTimeline({ docId }: { docId: string }) {
   if (error || !data) {
     return (
       <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
-        {error || 'Failed to load timeline'}
+        {error || t('timeline.failed_to_load')}
       </div>
     );
   }
@@ -93,19 +95,12 @@ export function GRTimeline({ docId }: { docId: string }) {
     return (
       <div className="p-6 text-center text-sm text-muted-foreground bg-muted/30 rounded-xl border border-border">
         <FileText className="w-8 h-8 mx-auto mb-3 opacity-20" />
-        <p>No related resolutions found for this document.</p>
-        <p className="text-xs opacity-70 mt-1">Our AI hasn't detected any references to other GRs.</p>
+        <p>{t('timeline.no_related')}</p>
+        <p className="text-xs opacity-70 mt-1">{t('timeline.no_detected')}</p>
       </div>
     );
   }
 
-  // Very simple horizontal layout strategy:
-  // Root node is docId. Incoming edges are older docs. Outgoing are newer (usually).
-  // Actually, if doc A supersedes doc B, doc A is newer. 
-  // Source is the one containing the text. Target is the one being referenced.
-  // So Source is always newer than Target.
-  
-  // Let's sort nodes by their upload_date if available, or just put target nodes on left, source on right.
   const nodeMap = new Map(data.nodes.map(n => [n.id, n]));
   
   const content = (
@@ -113,7 +108,7 @@ export function GRTimeline({ docId }: { docId: string }) {
       <div className="p-4 border-b border-border bg-muted/20 flex items-center justify-between">
         <h3 className="font-medium text-sm flex items-center gap-2">
           <ArrowRightLeft className="w-4 h-4 text-primary" />
-          Policy Lineage Graph
+          {t('timeline.policy_lineage')}
         </h3>
         <button 
           onClick={() => setIsMaximized(!isMaximized)}
@@ -153,11 +148,11 @@ export function GRTimeline({ docId }: { docId: string }) {
                   )}>
                     {sourceNode.id === docId && (
                       <div className="absolute -top-2.5 -right-2.5 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm">
-                        Current
+                        {t('timeline.current')}
                       </div>
                     )}
                     <div className="text-xs text-muted-foreground font-medium mb-1 truncate">
-                      {sourceNode.gr_number || 'Unknown GR No.'}
+                      {sourceNode.gr_number || t('timeline.unknown_gr')}
                     </div>
                     <div className="text-sm font-medium line-clamp-2 mb-2 leading-tight">
                       {sourceNode.title}
@@ -195,7 +190,7 @@ export function GRTimeline({ docId }: { docId: string }) {
                     targetNode.id === docId ? "border-primary ring-1 ring-primary/20" : "border-border"
                   )}>
                     <div className="text-xs text-muted-foreground font-medium mb-1 truncate">
-                      {targetNode.gr_number || 'Unknown GR No.'}
+                      {targetNode.gr_number || t('timeline.unknown_gr')}
                     </div>
                     <div className="text-sm font-medium line-clamp-2 mb-2 leading-tight">
                       {targetNode.title}
@@ -210,7 +205,7 @@ export function GRTimeline({ docId }: { docId: string }) {
                 ) : (
                   <div className="p-4 rounded-xl border border-dashed border-border bg-muted/20 flex flex-col items-center justify-center text-center h-[120px]">
                     <Search className="w-5 h-5 text-muted-foreground/50 mb-2" />
-                    <div className="text-xs font-medium text-muted-foreground mb-1">Unresolved Reference</div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">{t('timeline.unresolved_ref')}</div>
                     <div className="text-[11px] text-muted-foreground/80 font-mono bg-background px-2 py-1 rounded border">
                       {edge.unresolved_reference}
                     </div>

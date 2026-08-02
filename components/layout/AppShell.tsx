@@ -36,10 +36,10 @@ const NAV_ITEMS = [
 
 // The four visible top-nav links
 const TOP_NAV = [
-  { label: 'Home', screen: 'chat' as AppScreen },
-  { label: 'Documents', screen: 'documents' as AppScreen },
-  { label: 'Reports', screen: 'reports' as AppScreen },
-  { label: 'About', screen: 'about' as AppScreen },
+  { labelKey: 'nav.home', screen: 'chat' as AppScreen },
+  { labelKey: 'nav.documents', screen: 'documents' as AppScreen },
+  { labelKey: 'nav.reports', screen: 'reports' as AppScreen },
+  { labelKey: 'nav.about', screen: 'about' as AppScreen },
 ]
 
 function Topbar({
@@ -95,7 +95,7 @@ function Topbar({
       <nav id="tour-nav" className="hidden lg:flex items-center gap-1">
         {TOP_NAV.map((item, idx) => (
           <button
-            key={item.label}
+            key={item.labelKey}
             onClick={() => onNavigate(item.screen)}
             className={cn(
               'px-4 py-1.5 rounded-full text-[14px] font-medium transition-all',
@@ -104,7 +104,7 @@ function Topbar({
                 : 'text-[#5f6368] hover:text-[#202124] hover:bg-gray-100'
             )}
           >
-            {item.label}
+            {t(item.labelKey)}
           </button>
         ))}
       </nav>
@@ -198,7 +198,7 @@ function MobileSidebar({
                 </div>
                 <div className="flex flex-col">
                   <span className="font-bold text-foreground">Vachak Ai</span>
-                  <span className="text-xs text-muted-foreground">Admin Access</span>
+                  <span className="text-xs text-muted-foreground">{t('nav.admin_access')}</span>
                 </div>
               </div>
               <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">

@@ -71,13 +71,15 @@ function StreamingMessage({ content }: { content: string }) {
 }
 
 function EmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
+  const { t } = useTranslation()
+  
   const CATEGORIES = [
-    { label: 'Admissions', color: 'bg-blue-50 text-blue-500 border-blue-200' },
-    { label: 'Scholarships', color: 'bg-amber-50 text-amber-500 border-amber-200' },
-    { label: 'Institutions', color: 'bg-teal-50 text-teal-500 border-teal-200' },
-    { label: 'Policies', color: 'bg-violet-50 text-violet-500 border-violet-200' },
-    { label: 'Placements', color: 'bg-green-50 text-green-500 border-green-200' },
-    { label: 'Exams', color: 'bg-rose-50 text-rose-500 border-rose-200' },
+    { label: t('chat.cat_admissions', 'Admissions'), color: 'bg-blue-50 text-blue-500 border-blue-200' },
+    { label: t('chat.cat_scholarships', 'Scholarships'), color: 'bg-amber-50 text-amber-500 border-amber-200' },
+    { label: t('chat.cat_institutions', 'Institutions'), color: 'bg-teal-50 text-teal-500 border-teal-200' },
+    { label: t('chat.cat_policies', 'Policies'), color: 'bg-violet-50 text-violet-500 border-violet-200' },
+    { label: t('chat.cat_placements', 'Placements'), color: 'bg-green-50 text-green-500 border-green-200' },
+    { label: t('chat.cat_exams', 'Exams'), color: 'bg-rose-50 text-rose-500 border-rose-200' },
   ]
 
   return (
@@ -88,10 +90,10 @@ function EmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
         className="text-center w-full max-w-3xl mb-8"
       >
         <h1 className="text-4xl sm:text-5xl font-bold text-foreground mb-4 tracking-[-0.03em] leading-tight text-balance">
-          Ask anything about Maharashtra government policies, circulars & guidelines
+          {t('chat.hero_title', 'Ask anything about Maharashtra government policies, circulars & guidelines')}
         </h1>
         <p className="text-muted-foreground text-[17px] mb-8">
-          Answers grounded in official documents.
+          {t('chat.hero_subtitle', 'Answers grounded in official documents.')}
         </p>
         <div className="w-full h-px bg-border max-w-xl mx-auto mb-8" />
         
@@ -104,7 +106,7 @@ function EmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
               className="flex items-center gap-2.5 px-4 py-2 rounded-full border border-border bg-card hover:border-primary/30 hover:bg-muted transition-all text-sm font-medium text-foreground whitespace-nowrap"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-[#1a73e8]" />
-              {prompt.label}
+              {i === 0 ? t('chat.prompt_1', prompt.label) : i === 1 ? t('chat.prompt_2', prompt.label) : t('chat.prompt_3', prompt.label)}
             </button>
           ))}
         </div>
@@ -115,28 +117,28 @@ function EmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
             <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1a73e8] flex items-center justify-center border border-blue-100">
               <Sparkles className="w-4 h-4" />
             </div>
-            <span className="text-muted-foreground font-medium hidden sm:inline">Ask</span>
+            <span className="text-muted-foreground font-medium hidden sm:inline">{t('chat.ask', 'Ask')}</span>
           </div>
           <div className="w-8 sm:w-16 border-t-2 border-dashed border-border" />
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100">
               <RefreshCw className="w-4 h-4" />
             </div>
-            <span className="text-muted-foreground font-medium hidden sm:inline">Search</span>
+            <span className="text-muted-foreground font-medium hidden sm:inline">{t('chat.search', 'Search')}</span>
           </div>
           <div className="w-8 sm:w-16 border-t-2 border-dashed border-border" />
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
               <CheckSquare className="w-4 h-4" />
             </div>
-            <span className="text-muted-foreground font-medium hidden sm:inline">Verify</span>
+            <span className="text-muted-foreground font-medium hidden sm:inline">{t('chat.verify', 'Verify')}</span>
           </div>
         </div>
 
         {/* Section transition */}
         <div className="flex items-center gap-4 mb-10 w-full max-w-2xl mx-auto">
           <div className="flex-1 h-px bg-border" />
-          <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Browse</span>
+          <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">{t('chat.browse', 'Browse')}</span>
           <div className="flex-1 h-px bg-border" />
         </div>
 
@@ -179,6 +181,7 @@ export default function ChatScreen() {
   const [attachedFileText, setAttachedFileText] = useState<string | null>(null)
   const [isExtractingFile, setIsExtractingFile] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const speechStartInputRef = useRef<string>('')
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -200,13 +203,14 @@ export default function ChatScreen() {
       recognitionRef.current.interimResults = true
 
       recognitionRef.current.onresult = (event: any) => {
-        let currentTranscript = ''
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          currentTranscript += event.results[i][0].transcript
+        let transcript = ''
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript
         }
-        setInput(prev => {
-          const newText = prev + (prev.endsWith(' ') || prev.length === 0 ? '' : ' ') + currentTranscript
-          return newText
+        
+        setInput(() => {
+          const base = speechStartInputRef.current
+          return base + (base.endsWith(' ') || base.length === 0 ? '' : ' ') + transcript
         })
       }
 
@@ -226,6 +230,13 @@ export default function ChatScreen() {
       recognitionRef.current?.stop()
       setIsListening(false)
     } else {
+      speechStartInputRef.current = input
+      if (recognitionRef.current) {
+        let langCode = 'en-US'
+        if (i18n.language === 'mr') langCode = 'mr-IN'
+        if (i18n.language === 'hi') langCode = 'hi-IN'
+        recognitionRef.current.lang = langCode
+      }
       recognitionRef.current?.start()
       setIsListening(true)
     }
@@ -583,7 +594,7 @@ export default function ChatScreen() {
                   chatMode === 'grounded' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                Grounded
+                {t('chat.mode_grounded', 'Grounded')}
               </button>
               <button
                 onClick={() => setChatMode('general')}
@@ -592,7 +603,7 @@ export default function ChatScreen() {
                   chatMode === 'general' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                General
+                {t('chat.mode_general', 'General')}
               </button>
             </div>
             <button
@@ -727,9 +738,11 @@ export default function ChatScreen() {
                 <Send className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-center text-[11px] text-muted-foreground/60 mt-2">
-              Answers are grounded in official documents only. Always verify with the department for legal matters.
-            </p>
+            <div className="mt-2 text-center">
+              <p className="text-[11px] text-muted-foreground/60">
+                {t('chat.footer_warning', 'Answers are grounded in official documents only. Always verify with the department for legal matters.')}
+              </p>
+            </div>
           </div>
         </div>
       </div>

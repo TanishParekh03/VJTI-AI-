@@ -82,7 +82,43 @@ function DocumentDetailDrawer({ doc, docs, onClose, onSelectForCompare, selected
   const [isViewingChecklist, setIsViewingChecklist] = useState(false)
   const [checklistContent, setChecklistContent] = useState<string | null>(null)
   const [isExtractingChecklist, setIsExtractingChecklist] = useState(false)
+  const [translatedSummary, setTranslatedSummary] = useState<string | null>(null)
+  const [isTranslatingSummary, setIsTranslatingSummary] = useState(false)
+  const { i18n } = useTranslation()
   const isSelected = selectedForCompare.some((d) => d.id === doc.id)
+
+  useEffect(() => {
+    if (!doc.summary || i18n.language === 'en') {
+      setTranslatedSummary(null)
+      setIsTranslatingSummary(false)
+      return
+    }
+
+    let isMounted = true
+    setIsTranslatingSummary(true)
+
+    const fetchTranslation = async () => {
+      try {
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
+        const token = typeof window !== 'undefined' ? localStorage.getItem('hte_access_token') : null
+        const res = await fetch(`${API_BASE}/documents/${doc.id}/translate?language=${i18n.language}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (isMounted) setTranslatedSummary(data.summary)
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        if (isMounted) setIsTranslatingSummary(false)
+      }
+    }
+
+    fetchTranslation()
+
+    return () => { isMounted = false }
+  }, [doc.id, doc.summary, i18n.language])
 
   const handleGenerateChecklist = async () => {
     if (checklistContent) {
@@ -192,11 +228,18 @@ function DocumentDetailDrawer({ doc, docs, onClose, onSelectForCompare, selected
 
           {/* AI Summary */}
           <div className="rounded-xl border border-border p-4">
-            <div className="flex items-center gap-2 mb-2.5">
-              <BookOpen className="w-3.5 h-3.5 text-primary" />
-              <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">{t('docs.ai_summary')}</h3>
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-3.5 h-3.5 text-primary" />
+                <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">{t('docs.ai_summary')}</h3>
+              </div>
+              {isTranslatingSummary && (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary opacity-70" />
+              )}
             </div>
-            <p className="text-sm text-muted-foreground leading-relaxed">{doc.summary}</p>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {translatedSummary || doc.summary || t('docs.default_summary', 'Official Higher & Technical Education department document registered in system.')}
+            </p>
           </div>
 
           {/* Tags */}

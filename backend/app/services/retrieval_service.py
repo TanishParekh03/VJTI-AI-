@@ -44,7 +44,9 @@ def _get_client() -> AsyncQdrantClient:
 def _get_genai_client() -> genai.Client:
     global _genai_client
     if _genai_client is None:
-        _genai_client = genai.Client(api_key=settings.gemini_api_key)
+        if not settings.maha_ai_api_key:
+            raise RuntimeError(f"API key is missing in uvicorn process! Check if .env loaded. Settings: {settings.model_dump(exclude_unset=True)}")
+        _genai_client = genai.Client(api_key=settings.maha_ai_api_key)
     return _genai_client
 
 _sparse_embedding_model: SparseTextEmbedding | None = None

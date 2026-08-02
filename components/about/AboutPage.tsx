@@ -6,42 +6,45 @@ import {
   CheckCircle, Users, Lock, Sparkles, ArrowLeft, Cpu,
   Server, Code2, BookOpen, Layers
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   onNavigate: (screen: any) => void
 }
 
-const TECH_STACK = [
-  { category: 'RAG Pipeline', items: ['HyDE (Hypothetical Document Embeddings)', 'Query Decomposition', 'Hybrid Dense + Sparse Search', 'Reciprocal Rank Fusion (RRF)', 'Metadata Pre-filtering'], icon: Brain, color: 'text-violet-600 bg-violet-50 border-violet-200' },
-  { category: 'LLM & AI', items: ['Maha-AI Fast / Pro (Local)', 'Grounded Retrieval Mode', 'Bilingual EN + Marathi', 'Supersession Detection', 'Confidence Badge Scoring'], icon: Sparkles, color: 'text-blue-600 bg-blue-50 border-blue-200' },
-  { category: 'Vector Database', items: ['Qdrant — fully on-premise', 'Dense vectors (text-embedding-3)', 'Sparse vectors (BM25)', 'Payload filters for departments', 'Collection-based tenancy'], icon: Database, color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
-  { category: 'Ingestion', items: ['Tesseract OCR (EN + MR)', 'pypdf for digital PDFs', 'Marathi → English translation', 'Automatic AI summarisation', 'Applicability tagging'], icon: Layers, color: 'text-amber-600 bg-amber-50 border-amber-200' },
-  { category: 'Backend', items: ['FastAPI (Python)', 'PostgreSQL + Alembic', 'SQLAlchemy async ORM', 'JWT Authentication', 'Audit Log (Explainability)'], icon: Server, color: 'text-rose-600 bg-rose-50 border-rose-200' },
-  { category: 'Frontend', items: ['Next.js 14 App Router', 'Framer Motion animations', 'TailwindCSS v4', 'React i18n (EN/MR/HI)', 'SSE streaming chat'], icon: Code2, color: 'text-indigo-600 bg-indigo-50 border-indigo-200' },
-]
-
-const DATA_SOURCES = [
-  { name: 'gr.maharashtra.gov.in', desc: 'Official GR portal — primary source for all Government Resolutions', icon: BookOpen },
-  { name: 'dte.maharashtra.gov.in', desc: 'DTE portal — circulars, orders, and letters for technical education', icon: FileCheck },
-  { name: 'orgpedia/mahGRs (GitHub)', desc: 'Open-source historical GR dataset by orgpedia for bulk ingestion', icon: Database },
-]
-
-const TEAM = [
-  { name: 'VJTI AI Research Team', role: 'Core Architecture, RAG Pipeline & Backend Engineering', initials: 'VJ' },
-  { name: 'HTE Dept. Collaboration', role: 'Domain Expertise, Policy Validation & Dataset Curation', initials: 'HT' },
-  { name: 'orgpedia / mahGRs', role: 'Open-Source Historical GR Dataset (MIT License)', initials: 'OP' },
-]
-
-const FEATURES = [
-  { icon: Brain, title: 'HyDE Retrieval', desc: 'Generates a hypothetical answer and embeds it for far better semantic search recall.' },
-  { icon: Cpu, title: 'Query Decomposition', desc: 'Multi-part questions are split into sub-queries, each retrieved separately then synthesised.' },
-  { icon: Shield, title: 'Role-Based Access', desc: 'Students, faculty, officers and admins each see a scoped view of the document corpus.' },
-  { icon: Globe, title: 'Bilingual Support', desc: 'Ask in English or Marathi. Answers respect the language with official terminology preserved.' },
-  { icon: BarChart2, title: 'Audit & Explainability', desc: 'Every query is logged with retrieved chunks, scores, prompt, and response for full accountability.' },
-  { icon: Lock, title: 'On-Premise Privacy', desc: 'Qdrant runs locally. No document data or query content leaves your infrastructure.' },
-]
-
 export default function AboutPage({ onNavigate }: Props) {
+  const { t } = useTranslation()
+
+  const TECH_STACK = [
+    { category: t('about.tech_rag'), items: ['HyDE (Hypothetical Document Embeddings)', 'Query Decomposition', 'Hybrid Dense + Sparse Search', 'Reciprocal Rank Fusion (RRF)', 'Metadata Pre-filtering'], icon: Brain, color: 'text-violet-600 bg-violet-50 border-violet-200' },
+    { category: t('about.tech_llm'), items: ['Maha-AI Fast / Pro (Local)', 'Grounded Retrieval Mode', 'Bilingual EN + Marathi', 'Supersession Detection', 'Confidence Badge Scoring'], icon: Sparkles, color: 'text-blue-600 bg-blue-50 border-blue-200' },
+    { category: t('about.tech_vector'), items: ['Qdrant — fully on-premise', 'Dense vectors (text-embedding-3)', 'Sparse vectors (BM25)', 'Payload filters for departments', 'Collection-based tenancy'], icon: Database, color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+    { category: t('about.tech_ingestion'), items: ['Tesseract OCR (EN + MR)', 'pypdf for digital PDFs', 'Marathi → English translation', 'Automatic AI summarisation', 'Applicability tagging'], icon: Layers, color: 'text-amber-600 bg-amber-50 border-amber-200' },
+    { category: t('about.tech_backend'), items: ['FastAPI (Python)', 'PostgreSQL + Alembic', 'SQLAlchemy async ORM', 'JWT Authentication', 'Audit Log (Explainability)'], icon: Server, color: 'text-rose-600 bg-rose-50 border-rose-200' },
+    { category: t('about.tech_frontend'), items: ['Next.js 14 App Router', 'Framer Motion animations', 'TailwindCSS v4', 'React i18n (EN/MR/HI)', 'SSE streaming chat'], icon: Code2, color: 'text-indigo-600 bg-indigo-50 border-indigo-200' },
+  ]
+
+  const DATA_SOURCES = [
+    { name: t('about.source_gr'), desc: t('about.source_gr_desc'), icon: BookOpen },
+    { name: t('about.source_dte'), desc: t('about.source_dte_desc'), icon: FileCheck },
+    { name: t('about.source_orgpedia'), desc: t('about.source_orgpedia_desc'), icon: Database },
+  ]
+
+  const TEAM = [
+    { name: t('about.team_vjti'), role: t('about.team_vjti_role'), initials: 'VJ' },
+    { name: t('about.team_hte'), role: t('about.team_hte_role'), initials: 'HT' },
+    { name: t('about.team_orgpedia'), role: t('about.team_orgpedia_role'), initials: 'OP' },
+  ]
+
+  const FEATURES = [
+    { icon: Brain, title: t('about.feat_hyde_title'), desc: t('about.feat_hyde_desc') },
+    { icon: Cpu, title: t('about.feat_query_title'), desc: t('about.feat_query_desc') },
+    { icon: Shield, title: t('about.feat_rbac_title'), desc: t('about.feat_rbac_desc') },
+    { icon: Globe, title: t('about.feat_bilingual_title'), desc: t('about.feat_bilingual_desc') },
+    { icon: BarChart2, title: t('about.feat_audit_title'), desc: t('about.feat_audit_desc') },
+    { icon: Lock, title: t('about.feat_privacy_title'), desc: t('about.feat_privacy_desc') },
+  ]
+
   return (
     <div className="h-full overflow-y-auto bg-gray-50/50 selection:bg-indigo-500/30">
       {/* Hero */}
@@ -61,7 +64,7 @@ export default function AboutPage({ onNavigate }: Props) {
           className="relative z-10 flex items-center gap-2 text-white/60 hover:text-white text-sm mb-10 transition-colors group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          Back to Assistant
+          {t('about.back_to_assistant')}
         </button>
 
         <div className="relative z-10 max-w-4xl">
@@ -74,7 +77,7 @@ export default function AboutPage({ onNavigate }: Props) {
               <span className="text-white font-black text-2xl tracking-wide">VA</span>
             </div>
             <div>
-              <p className="text-indigo-400 text-xs font-bold uppercase tracking-[0.2em] mb-1.5">Government of Maharashtra</p>
+              <p className="text-indigo-400 text-xs font-bold uppercase tracking-[0.2em] mb-1.5">{t('about.gov_maharashtra')}</p>
               <h1 className="text-white font-black text-4xl sm:text-5xl lg:text-6xl tracking-tight leading-tight">
                 Vachak <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">Ai</span>
               </h1>
@@ -86,7 +89,7 @@ export default function AboutPage({ onNavigate }: Props) {
             transition={{ delay: 0.1 }}
             className="text-white/70 text-lg sm:text-xl leading-relaxed max-w-2xl font-light"
           >
-            An AI-powered policy intelligence platform for the Higher & Technical Education Department — instant, grounded answers from official Government Resolutions.
+            {t('about.hero_desc')}
           </motion.p>
         </div>
       </div>
@@ -104,14 +107,14 @@ export default function AboutPage({ onNavigate }: Props) {
             <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-indigo-600" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Our Mission</h2>
+            <h2 className="text-2xl font-bold text-gray-900 tracking-tight">{t('about.our_mission')}</h2>
           </div>
           <div className="prose prose-lg prose-indigo max-w-none text-gray-600">
             <p>
-              Maharashtra's Higher & Technical Education department administers thousands of Government Resolutions, circulars, and policy orders. Officers, faculty, institutions, and students waste countless hours manually searching through stacks of PDFs to find a single eligibility criterion or deadline.
+              {t('about.mission_p1')}
             </p>
             <p>
-              <strong className="text-gray-900 font-semibold">Vachak Ai</strong> changes that entirely. Using a state-of-the-art Retrieval-Augmented Generation pipeline, anyone can ask natural-language questions — in English or Marathi — and receive precise, source-cited answers grounded exclusively in official government documents, in seconds.
+              <strong className="text-gray-900 font-semibold">{t('about.mission_p2_prefix')}</strong>{t('about.mission_p2')}
             </p>
           </div>
         </motion.div>
@@ -122,7 +125,7 @@ export default function AboutPage({ onNavigate }: Props) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
         >
-          <h2 className="text-xl font-bold text-gray-900 mb-6 tracking-tight">Key Capabilities</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6 tracking-tight">{t('about.key_capabilities')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {FEATURES.map((f, i) => (
               <motion.div
@@ -147,7 +150,7 @@ export default function AboutPage({ onNavigate }: Props) {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
         >
-          <h2 className="text-xl font-bold text-gray-900 mb-6 tracking-tight">Enterprise Architecture</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-6 tracking-tight">{t('about.enterprise_arch')}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {TECH_STACK.map((block, i) => (
               <motion.div
@@ -183,7 +186,7 @@ export default function AboutPage({ onNavigate }: Props) {
             transition={{ delay: 0.5 }}
             className="bg-white rounded-3xl border border-gray-100 shadow-lg shadow-gray-200/20 p-8 flex flex-col"
           >
-            <h2 className="text-xl font-bold text-gray-900 mb-6 tracking-tight">Verified Data Sources</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-6 tracking-tight">{t('about.verified_sources')}</h2>
             <div className="space-y-4 mb-8 flex-1">
               {DATA_SOURCES.map((s) => (
                 <div key={s.name} className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50/80 border border-gray-100 hover:bg-indigo-50/50 hover:border-indigo-100 transition-colors group">
@@ -202,7 +205,7 @@ export default function AboutPage({ onNavigate }: Props) {
                 <Lock className="w-4 h-4 text-indigo-600" />
               </div>
               <p className="text-indigo-900/80 text-sm leading-relaxed font-medium pt-1.5">
-                All data is indexed and stored locally in Qdrant on-premise. No document content leaves your infrastructure.
+                {t('about.privacy_notice')}
               </p>
             </div>
           </motion.div>
@@ -215,7 +218,7 @@ export default function AboutPage({ onNavigate }: Props) {
               transition={{ delay: 0.6 }}
               className="bg-white rounded-3xl border border-gray-100 shadow-lg shadow-gray-200/20 p-8 flex-1"
             >
-              <h2 className="text-xl font-bold text-gray-900 mb-6 tracking-tight">Project Collaboration</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-6 tracking-tight">{t('about.project_collab')}</h2>
               <div className="space-y-4">
                 {TEAM.map((m, i) => (
                   <div key={m.name} className="flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 transition-colors border border-transparent hover:border-gray-100">
@@ -245,13 +248,13 @@ export default function AboutPage({ onNavigate }: Props) {
                 onClick={() => onNavigate('chat')}
                 className="flex-1 h-14 rounded-2xl bg-[#0A0F2C] text-white font-semibold hover:bg-indigo-600 transition-colors shadow-xl shadow-indigo-600/20"
               >
-                Open Assistant
+                {t('about.open_assistant')}
               </button>
               <button
                 onClick={() => onNavigate('reports')}
                 className="flex-1 h-14 rounded-2xl border-2 border-gray-200 text-gray-700 font-semibold hover:border-[#0A0F2C] hover:text-[#0A0F2C] transition-colors"
               >
-                Generate Report
+                {t('about.generate_report')}
               </button>
             </motion.div>
           </div>

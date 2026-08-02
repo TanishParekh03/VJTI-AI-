@@ -744,6 +744,34 @@ async def update_document(
         tags=json.loads(doc.tags) if doc.tags else [],
     )
 
+
+@router.get("/{doc_id}/translate")
+async def translate_summary(
+    doc_id: str,
+    language: str,
+    user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """
+    Dynamically translate a document summary to the requested language.
+    Uses LLM for translation if language is not English.
+    """
+    result = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    if language == "en" or not doc.summary:
+        return {"summary": doc.summary}
+        
+    from app.services import llm_service
+    lang_name = "Marathi" if language == "mr" else "Hindi" if language == "hi" else "English"
+    try:
+        translated = await llm_service.translate_text(doc.summary, target_lang=lang_name)
+        return {"summary": translated}
+    except Exception:
+        return {"summary": doc.summary}
+
 @router.get("/{doc_id}/checklist")
 async def extract_compliance_checklist(
     doc_id: str,

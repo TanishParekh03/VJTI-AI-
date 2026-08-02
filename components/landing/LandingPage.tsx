@@ -7,69 +7,30 @@ import {
   Sparkles, Layers, Search, ArrowRight, X, Users, Zap, Globe,
   Award, CheckCircle, Brain, Database, Lock, BarChart2, FileText
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   onLogin: () => void
 }
 
-const FEATURES = [
-  {
-    icon: Brain,
-    title: 'AI-Powered Answers',
-    desc: 'Advanced RAG pipeline with HyDE, query decomposition and hybrid vector search over official GRs.',
-    color: 'from-violet-500/20 to-indigo-500/20',
-    border: 'border-violet-200',
-    icon_bg: 'bg-violet-100 text-violet-600',
-  },
-  {
-    icon: FileCheck,
-    title: 'Source-Cited Responses',
-    desc: 'Every answer references exact GR numbers, page numbers and document titles. Never a hallucination.',
-    color: 'from-blue-500/20 to-cyan-500/20',
-    border: 'border-blue-200',
-    icon_bg: 'bg-blue-100 text-blue-600',
-  },
-  {
-    icon: Database,
-    title: 'Official GR Database',
-    desc: 'Indexed from gr.maharashtra.gov.in, dte.maharashtra.gov.in, and orgpedia/mahGRs repository.',
-    color: 'from-emerald-500/20 to-teal-500/20',
-    border: 'border-emerald-200',
-    icon_bg: 'bg-emerald-100 text-emerald-600',
-  },
-  {
-    icon: Shield,
-    title: 'Role-Based Access',
-    desc: 'Students, faculty, officers and admins see only what they are authorised to see. Fully audited.',
-    color: 'from-amber-500/20 to-orange-500/20',
-    border: 'border-amber-200',
-    icon_bg: 'bg-amber-100 text-amber-600',
-  },
-  {
-    icon: Globe,
-    title: 'Bilingual — EN & MR',
-    desc: 'Ask and receive answers in English or Marathi. Terminology preserved in original form.',
-    color: 'from-pink-500/20 to-rose-500/20',
-    border: 'border-pink-200',
-    icon_bg: 'bg-pink-100 text-pink-600',
-  },
-  {
-    icon: BarChart2,
-    title: 'Compliance Checklists',
-    desc: 'Automatically extract deadlines, forms, eligibility criteria and next steps from any GR.',
-    color: 'from-indigo-500/20 to-purple-500/20',
-    border: 'border-indigo-200',
-    icon_bg: 'bg-indigo-100 text-indigo-600',
-  },
-]
-
-const TEAM = [
-  { name: 'VJTI AI Research Team', role: 'Core Architecture & RAG Pipeline' },
-  { name: 'HTE Dept. Collaboration', role: 'Domain Expertise & Dataset Curation' },
-  { name: 'orgpedia/mahGRs', role: 'Historical GR Dataset (Open Source)' },
-]
-
 function AboutModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
+
+  const TECH_ITEMS = [
+    [t('landing.tech_rag'), t('landing.tech_rag_desc')],
+    [t('landing.tech_llm'), t('landing.tech_llm_desc')],
+    [t('landing.tech_vector'), t('landing.tech_vector_desc')],
+    [t('landing.tech_ingestion'), t('landing.tech_ingestion_desc')],
+    [t('landing.tech_backend'), t('landing.tech_backend_desc')],
+    [t('landing.tech_frontend'), t('landing.tech_frontend_desc')],
+  ]
+
+  const TEAM = [
+    { name: t('landing.team_vjti'), role: t('landing.team_vjti_role') },
+    { name: t('landing.team_hte'), role: t('landing.team_hte_role') },
+    { name: t('landing.team_orgpedia'), role: t('landing.team_orgpedia_role') },
+  ]
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -109,12 +70,12 @@ function AboutModal({ onClose }: { onClose: () => void }) {
               <span className="text-white font-bold text-xl">VA</span>
             </div>
             <div>
-              <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">Maharashtra Government</p>
+              <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">{t('landing.maharashtra_gov')}</p>
               <h2 className="text-white font-bold text-xl">Vachak Ai</h2>
             </div>
           </div>
           <p className="relative text-white/80 text-sm leading-relaxed max-w-lg">
-            An AI-powered policy intelligence platform built for the Higher & Technical Education Department, Government of Maharashtra — bringing GR search into the 21st century.
+            {t('landing.about_modal_subtitle')}
           </p>
         </div>
 
@@ -122,24 +83,17 @@ function AboutModal({ onClose }: { onClose: () => void }) {
         <div className="px-8 py-6 space-y-7">
           {/* Mission */}
           <div>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-3">Our Mission</h3>
+            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-3">{t('landing.our_mission')}</h3>
             <p className="text-gray-600 text-sm leading-relaxed">
-              Maharashtra's Higher & Technical Education department manages thousands of Government Resolutions, circulars, and policy documents. Officers, faculty, and students waste hours searching through PDFs. Vachak Ai changes that — letting anyone ask natural language questions and get precise, source-cited answers in seconds.
+              {t('landing.mission_text')}
             </p>
           </div>
 
           {/* Tech */}
           <div>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-3">Technology</h3>
+            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-3">{t('landing.technology')}</h3>
             <div className="grid grid-cols-2 gap-2.5">
-              {[
-                ['RAG Pipeline', 'HyDE + Query Decomposition + Hybrid Search'],
-                ['LLM', 'Maha-AI (local secure model)'],
-                ['Vector DB', 'Qdrant — fully local, on-premise'],
-                ['Ingestion', 'Multimodal OCR · English + Marathi'],
-                ['Backend', 'FastAPI + PostgreSQL + Alembic'],
-                ['Frontend', 'Next.js 14 · TailwindCSS · Framer Motion'],
-              ].map(([k, v]) => (
+              {TECH_ITEMS.map(([k, v]) => (
                 <div key={k} className="flex items-start gap-2 p-3 rounded-xl bg-gray-50 border border-gray-100">
                   <CheckCircle className="w-3.5 h-3.5 text-indigo-600 mt-0.5 shrink-0" />
                   <div>
@@ -153,7 +107,7 @@ function AboutModal({ onClose }: { onClose: () => void }) {
 
           {/* Team */}
           <div>
-            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-3">Team & Credits</h3>
+            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-3">{t('landing.team_credits')}</h3>
             <div className="space-y-2">
               {TEAM.map((m) => (
                 <div key={m.name} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
@@ -172,10 +126,10 @@ function AboutModal({ onClose }: { onClose: () => void }) {
           {/* Data sources */}
           <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-100">
             <p className="text-xs font-bold text-indigo-800 mb-1.5 flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5" /> Data Sources & Privacy
+              <Lock className="w-3.5 h-3.5" /> {t('landing.data_privacy')}
             </p>
             <p className="text-xs text-indigo-700 leading-relaxed">
-              All data is sourced from publicly available Maharashtra Government portals (gr.maharashtra.gov.in, dte.maharashtra.gov.in) and the open-source orgpedia/mahGRs dataset. Qdrant runs fully on-premise — no query data leaves your infrastructure.
+              {t('landing.data_privacy_text')}
             </p>
           </div>
 
@@ -183,7 +137,7 @@ function AboutModal({ onClose }: { onClose: () => void }) {
             onClick={onClose}
             className="w-full h-11 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors"
           >
-            Got it, thanks!
+            {t('landing.got_it')}
           </button>
         </div>
       </motion.div>
@@ -192,6 +146,7 @@ function AboutModal({ onClose }: { onClose: () => void }) {
 }
 
 export default function LandingPage({ onLogin }: Props) {
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -200,10 +155,76 @@ export default function LandingPage({ onLogin }: Props) {
   const [tab, setTab] = useState<'home' | 'about'>('home')
   const [aboutOpen, setAboutOpen] = useState(false)
 
+  const FEATURES = [
+    {
+      icon: Brain,
+      title: t('landing.feature_ai_title'),
+      desc: t('landing.feature_ai_desc'),
+      color: 'from-violet-500/20 to-indigo-500/20',
+      border: 'border-violet-200',
+      icon_bg: 'bg-violet-100 text-violet-600',
+    },
+    {
+      icon: FileCheck,
+      title: t('landing.feature_source_title'),
+      desc: t('landing.feature_source_desc'),
+      color: 'from-blue-500/20 to-cyan-500/20',
+      border: 'border-blue-200',
+      icon_bg: 'bg-blue-100 text-blue-600',
+    },
+    {
+      icon: Database,
+      title: t('landing.feature_db_title'),
+      desc: t('landing.feature_db_desc'),
+      color: 'from-emerald-500/20 to-teal-500/20',
+      border: 'border-emerald-200',
+      icon_bg: 'bg-emerald-100 text-emerald-600',
+    },
+    {
+      icon: Shield,
+      title: t('landing.feature_rbac_title'),
+      desc: t('landing.feature_rbac_desc'),
+      color: 'from-amber-500/20 to-orange-500/20',
+      border: 'border-amber-200',
+      icon_bg: 'bg-amber-100 text-amber-600',
+    },
+    {
+      icon: Globe,
+      title: t('landing.feature_bilingual_title'),
+      desc: t('landing.feature_bilingual_desc'),
+      color: 'from-pink-500/20 to-rose-500/20',
+      border: 'border-pink-200',
+      icon_bg: 'bg-pink-100 text-pink-600',
+    },
+    {
+      icon: BarChart2,
+      title: t('landing.feature_compliance_title'),
+      desc: t('landing.feature_compliance_desc'),
+      color: 'from-indigo-500/20 to-purple-500/20',
+      border: 'border-indigo-200',
+      icon_bg: 'bg-indigo-100 text-indigo-600',
+    },
+  ]
+
+  const TRUST_ITEMS = [
+    { icon: BookOpen, text: t('landing.trust_grounded') },
+    { icon: FileCheck, text: t('landing.trust_cited') },
+    { icon: Shield, text: t('landing.trust_rbac') },
+    { icon: Award, text: t('landing.trust_bilingual') },
+  ]
+
+  const TAGS = [
+    t('landing.tag_scholarship'),
+    t('landing.tag_aicte'),
+    t('landing.tag_exam'),
+    t('landing.tag_fee'),
+    t('landing.tag_university'),
+  ]
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!email || !password) {
-      setError('Please enter your credentials.')
+      setError(t('landing.enter_credentials'))
       return
     }
     setError('')
@@ -233,22 +254,22 @@ export default function LandingPage({ onLogin }: Props) {
             </div>
             <div>
               <p className="font-semibold text-gray-900 text-[15px] leading-tight">Vachak Ai</p>
-              <p className="text-xs text-gray-500 font-medium tracking-wide uppercase">Maharashtra Gov</p>
+              <p className="text-xs text-gray-500 font-medium tracking-wide uppercase">{t('landing.maharashtra_gov')}</p>
             </div>
           </div>
 
           <div className="flex items-center gap-1">
-            {(['home', 'about'] as const).map((t) => (
+            {(['home', 'about'] as const).map((tabVal) => (
               <button
-                key={t}
-                onClick={() => { setTab(t); if (t === 'about') setAboutOpen(true) }}
+                key={tabVal}
+                onClick={() => { setTab(tabVal); if (tabVal === 'about') setAboutOpen(true) }}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                  tab === t
+                  tab === tabVal
                     ? 'bg-indigo-600 text-white shadow'
                     : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
                 }`}
               >
-                {t === 'home' ? 'Home' : 'About Us'}
+                {tabVal === 'home' ? t('landing.home') : t('landing.about_us')}
               </button>
             ))}
           </div>
@@ -265,22 +286,22 @@ export default function LandingPage({ onLogin }: Props) {
           >
             <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-full px-3 py-1 mb-6">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-indigo-700 text-xs font-semibold">AI-Powered Policy Intelligence</span>
+              <span className="text-indigo-700 text-xs font-semibold">{t('landing.ai_policy_intelligence')}</span>
             </div>
 
             <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-[1.1] tracking-tight mb-5">
-              Ask anything about<br />
+              {t('landing.hero_title_1')}<br />
               <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
-                HTE Policies
+                {t('landing.hero_title_2')}
               </span>
             </h1>
 
             <p className="text-gray-500 text-lg leading-relaxed mb-8">
-              Instant, source-cited answers from official Maharashtra Government Resolutions, circulars, and guidelines — grounded, bilingual, and always up-to-date.
+              {t('landing.hero_desc')}
             </p>
 
             <div className="flex flex-wrap gap-2 mb-10">
-              {['Scholarship Rules', 'AICTE Circulars', 'Exam Policies', 'Fee Regulations', 'University GRs'].map((tag) => (
+              {TAGS.map((tag) => (
                 <span key={tag} className="text-indigo-700 text-xs font-medium bg-indigo-50 border border-indigo-200 rounded-full px-3 py-1">
                   {tag}
                 </span>
@@ -293,14 +314,14 @@ export default function LandingPage({ onLogin }: Props) {
                 className="flex items-center justify-center gap-2 h-12 px-6 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg"
               >
                 <Layers className="w-4 h-4" />
-                Continue with Gov. SSO
+                {t('landing.continue_sso')}
                 <ArrowRight className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setAboutOpen(true)}
                 className="flex items-center justify-center gap-2 h-12 px-6 rounded-xl border border-gray-200 text-gray-700 font-medium text-sm hover:border-indigo-300 hover:text-indigo-700 transition-all"
               >
-                Learn More
+                {t('landing.learn_more')}
               </button>
             </div>
           </motion.div>
@@ -314,8 +335,8 @@ export default function LandingPage({ onLogin }: Props) {
           >
             <div className="bg-white rounded-3xl border border-gray-100 shadow-xl p-8">
               <div className="mb-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-1">Welcome back</h2>
-                <p className="text-sm text-gray-500">Sign in to your HTE AI account</p>
+                <h2 className="text-xl font-bold text-gray-900 mb-1">{t('landing.welcome_back')}</h2>
+                <p className="text-sm text-gray-500">{t('landing.sign_in_subtitle')}</p>
               </div>
 
               {/* SSO */}
@@ -327,19 +348,19 @@ export default function LandingPage({ onLogin }: Props) {
                 <div className="w-5 h-5 rounded bg-indigo-100 flex items-center justify-center">
                   <Layers className="w-3 h-3 text-indigo-600" />
                 </div>
-                Continue with Gov. SSO (Maha-SSO)
+                {t('landing.continue_sso_maha')}
                 <ArrowRight className="w-3.5 h-3.5 text-gray-400 ml-auto" />
               </button>
 
               <div className="flex items-center gap-3 mb-5">
                 <div className="flex-1 h-px bg-gray-100" />
-                <span className="text-gray-400 text-xs">or sign in with email</span>
+                <span className="text-gray-400 text-xs">{t('landing.or_sign_in_email')}</span>
                 <div className="flex-1 h-px bg-gray-100" />
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Email address</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">{t('landing.email_address')}</label>
                   <input
                     suppressHydrationWarning
                     type="email"
@@ -352,9 +373,9 @@ export default function LandingPage({ onLogin }: Props) {
 
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-sm font-medium text-gray-700">Password</label>
+                    <label className="text-sm font-medium text-gray-700">{t('landing.password')}</label>
                     <button suppressHydrationWarning type="button" className="text-xs text-indigo-600 hover:underline">
-                      Forgot password?
+                      {t('landing.forgot_password')}
                     </button>
                   </div>
                   <div className="relative">
@@ -390,10 +411,10 @@ export default function LandingPage({ onLogin }: Props) {
                   {loading ? (
                     <span className="flex items-center gap-2">
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Signing in…
+                      {t('landing.signing_in')}
                     </span>
                   ) : (
-                    <>Sign in <ChevronRight className="w-4 h-4" /></>
+                    <>{t('landing.sign_in')} <ChevronRight className="w-4 h-4" /></>
                   )}
                 </button>
               </form>
@@ -402,13 +423,13 @@ export default function LandingPage({ onLogin }: Props) {
                 <div className="flex items-start gap-2.5">
                   <Search className="w-3.5 h-3.5 text-indigo-600 mt-0.5 shrink-0" />
                   <p className="text-xs text-indigo-700 leading-relaxed">
-                    <strong className="font-semibold">Demo mode:</strong> Enter any credentials or use the SSO button to explore the full platform.
+                    <strong className="font-semibold">{t('landing.demo_mode')}</strong> {t('landing.demo_desc')}
                   </p>
                 </div>
               </div>
 
               <p className="text-center text-xs text-gray-400 mt-5">
-                Protected by the IT Act 2000. Support:{' '}
+                {t('landing.it_act_notice')}{' '}
                 <a href="#" className="text-indigo-600 hover:underline">helpdesk@hte.gov.in</a>
               </p>
             </div>
@@ -424,7 +445,7 @@ export default function LandingPage({ onLogin }: Props) {
           >
             <div className="flex items-center gap-4 mb-8">
               <div className="flex-1 h-px bg-gray-100" />
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Platform Features</p>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{t('landing.platform_features')}</p>
               <div className="flex-1 h-px bg-gray-100" />
             </div>
 
@@ -454,12 +475,7 @@ export default function LandingPage({ onLogin }: Props) {
             transition={{ delay: 0.7 }}
             className="mt-12 flex flex-wrap justify-center gap-6"
           >
-            {[
-              { icon: BookOpen, text: 'Grounded in official documents' },
-              { icon: FileCheck, text: 'Source-cited answers' },
-              { icon: Shield, text: 'Role-based access' },
-              { icon: Award, text: 'Bilingual EN/MR support' },
-            ].map(({ icon: Icon, text }) => (
+            {TRUST_ITEMS.map(({ icon: Icon, text }) => (
               <div key={text} className="flex items-center gap-2 text-gray-500 text-sm">
                 <Icon className="w-4 h-4 text-indigo-400" />
                 <span>{text}</span>
@@ -470,8 +486,8 @@ export default function LandingPage({ onLogin }: Props) {
 
         {/* Footer */}
         <footer className="border-t border-gray-100 py-5 px-6 text-center text-xs text-gray-400">
-          © 2025 Vachak Ai · Maharashtra Government Higher & Technical Education Department ·{' '}
-          <button onClick={() => setAboutOpen(true)} className="text-indigo-500 hover:underline">About Us</button>
+          {t('landing.footer_text')} ·{' '}
+          <button onClick={() => setAboutOpen(true)} className="text-indigo-500 hover:underline">{t('landing.about_us')}</button>
         </footer>
       </div>
 
