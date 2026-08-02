@@ -33,28 +33,28 @@ graph TD
     classDef feature fill:#f8fafc,stroke:#8b5cf6,stroke-width:2px,stroke-dasharray: 4 4,color:#000000,rx:8px,ry:8px;
 
     %% User & Client Layer
-    User[👤 End User / Officer]:::client
-    UI[🖥️ Next.js Frontend\nReact, TailwindCSS]:::client
-    Speech[🎤 Speech-to-Text &\n🔊 Text-to-Speech\n(mr-IN, hi-IN, en-US)]:::feature
+    User["👤 End User / Officer"]:::client
+    UI["🖥️ Next.js Frontend\nReact, TailwindCSS"]:::client
+    Speech["🎤 Speech-to-Text &\n🔊 Text-to-Speech\n(mr-IN, hi-IN, en-US)"]:::feature
     
     %% Backend Orchestration
-    API[⚙️ FastAPI Backend\nAuth, Rate Limiting, Orch.]:::backend
-    Trans[🌐 Dynamic Multilingual\nTranslation Service]:::feature
+    API["⚙️ FastAPI Backend\nAuth, Rate Limiting, Orch."]:::backend
+    Trans["🌐 Dynamic Multilingual\nTranslation Service"]:::feature
     
     subgraph RAG_Pipeline [🧠 Advanced RAG Pipeline]
         style RAG_Pipeline fill:#f8fafc,stroke:#cbd5e1,stroke-width:2px,color:#000000,rx:8px,ry:8px
-        Decomp[🧩 Query Decomposition\nSplit complex queries]:::backend
-        HyDE[💡 HyDE\nGenerate Hypothetical Doc]:::backend
-        Hybrid[🎯 Hybrid Search\nDense + Sparse Vectors]:::backend
+        Decomp["🧩 Query Decomposition\nSplit complex queries"]:::backend
+        HyDE["💡 HyDE\nGenerate Hypothetical Doc"]:::backend
+        Hybrid["🎯 Hybrid Search\nDense + Sparse Vectors"]:::backend
     end
     
     %% Databases
-    PG[(🐘 PostgreSQL\nUsers, Docs, Audit, Lineage)]:::db
-    QD[(🎯 Qdrant\nLocal Vector Storage)]:::db
+    PG[("🐘 PostgreSQL\nUsers, Docs, Audit, Lineage")]:::db
+    QD[("🎯 Qdrant\nLocal Vector Storage")]:::db
     
     %% AI Models
-    LLM((🤖 Maha-AI / Gemini\nFlash LLM Gateway)):::ai
-    Emb((🔢 FastEmbed\nEmbedding Model BM25)):::ai
+    LLM(("🤖 Maha-AI / Gemini\nFlash LLM Gateway")):::ai
+    Emb(("🔢 FastEmbed\nEmbedding Model BM25")):::ai
 
     %% Connections
     User -->|Voice / Text Prompts| UI
