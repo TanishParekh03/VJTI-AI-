@@ -74,6 +74,7 @@ async def chat_stream(
             mode=body.mode,
             report_prompt=body.report_prompt,
             attached_file_text=body.attached_file_text,
+            simplify=body.simplify,
             db=db,
         ):
             # If client disconnected, stop generating

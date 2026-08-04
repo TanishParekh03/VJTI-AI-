@@ -75,7 +75,7 @@ def _score_to_confidence(score: float) -> str:
 
 # ── System prompt assembly ─────────────────────────────────────────────────────
 
-def _build_system_prompt(results: list[SearchResult], language: str | None = None) -> str:
+def _build_system_prompt(results: list[SearchResult], language: str | None = None, simplify: bool = False) -> str:
     context_blocks = "\n\n".join(
         f"[Source {i + 1}]\n"
         f"Title: {r.title}\n"
@@ -90,11 +90,23 @@ def _build_system_prompt(results: list[SearchResult], language: str | None = Non
     lang_map = {"en": "English", "hi": "Hindi", "mr": "Marathi"}
     target_lang = lang_map.get(language, "English") if language else "English"
 
-    return (
+    base_prompt = (
         "You are Vachak Ai, the official AI Assistant for the Higher & Technical Education Department, "
         "Government of Maharashtra. Your sole purpose is to answer questions about policy "
         "policies, circulars, scholarships, and guidelines using ONLY the official documents "
         "provided below.\n\n"
+    )
+
+    if simplify:
+        base_prompt += (
+            "CRITICAL INSTRUCTION - CITIZEN MODE ACTIVE: You must explain the answer in the absolute simplest terms possible. "
+            "Explain it as if you are talking to a 10-year-old or an uneducated citizen. "
+            "Remove all complex legal jargon, administrative terminology, and complicated clauses. "
+            "Use simple analogies if necessary. Keep the tone friendly and highly accessible.\n\n"
+        )
+
+    return (
+        base_prompt +
         "RULES — follow without exception:\n"
         "1. Answer ONLY using the provided document context. Every factual claim must be "
         "traceable to a source below.\n"
@@ -145,6 +157,7 @@ async def run_rag_pipeline(
     mode: str = "grounded",
     report_prompt: str | None = None,
     attached_file_text: str | None = None,
+    simplify: bool = False,
 ) -> AsyncGenerator[str, None]:
     """
     Full RAG pipeline as an async SSE generator.
@@ -316,7 +329,7 @@ async def run_rag_pipeline(
             return
 
         # ── Step 5: Assemble strict grounded system prompt ────────────────────
-        system_prompt = _build_system_prompt(above_threshold, language)
+        system_prompt = _build_system_prompt(above_threshold, language, simplify)
         
         if attached_file_text:
             system_prompt += f"\n\n=========================================\n"

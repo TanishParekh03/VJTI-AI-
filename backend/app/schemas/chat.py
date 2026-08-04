@@ -14,6 +14,7 @@ class ChatRequest(BaseModel):
     mode: Literal["grounded", "general"] = "grounded"
     report_prompt: str | None = None
     attached_file_text: str | None = None
+    simplify: bool = False
 
 
 class MessageRead(BaseModel):

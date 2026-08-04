@@ -173,7 +173,8 @@ export default function ChatScreen() {
   const [streamingText, setStreamingText] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [rightPanelOpen, setRightPanelOpen] = useState(false)
-  const [chatMode, setChatMode] = useState<'grounded' | 'general'>('grounded')
+  const [chatMode] = useState<'grounded'>('grounded')
+  const [simplify, setSimplify] = useState(false)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [isListening, setIsListening] = useState(false)
   const recognitionRef = useRef<any>(null)
@@ -410,6 +411,7 @@ export default function ChatScreen() {
           conversation_id: payloadConvId,
           language: i18n.language,
           mode: chatMode,
+          simplify: simplify,
           attached_file_text: currentAttachedFileText,
         }),
       })
@@ -586,26 +588,19 @@ export default function ChatScreen() {
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="flex bg-muted p-0.5 rounded-lg border border-border">
-              <button
-                onClick={() => setChatMode('grounded')}
-                className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-md transition-all",
-                  chatMode === 'grounded' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {t('chat.mode_grounded', 'Grounded')}
-              </button>
-              <button
-                onClick={() => setChatMode('general')}
-                className={cn(
-                  "px-3 py-1 text-xs font-medium rounded-md transition-all",
-                  chatMode === 'general' ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {t('chat.mode_general', 'General')}
-              </button>
-            </div>
+            <button
+              onClick={() => setSimplify(!simplify)}
+              className={cn(
+                "px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 border",
+                simplify 
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+                  : "bg-muted text-muted-foreground border-border hover:text-foreground hover:bg-muted/80"
+              )}
+              title={t('chat.citizen_mode_tooltip', 'Simplify complex legal jargon into easy-to-understand language.')}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              {t('chat.citizen_mode', 'Citizen Mode')}
+            </button>
             <button
               onClick={() => setRightPanelOpen(!rightPanelOpen)}
               className={cn(

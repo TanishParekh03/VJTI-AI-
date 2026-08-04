@@ -82,6 +82,8 @@
     "prompt_2": "Latest AICTE circular on EV technology",
     "prompt_3": "Exam re-evaluation process",
     "footer_warning": "Answers are grounded in official documents only. Always verify with the department for legal matters.",
+    "citizen_mode": "Citizen Mode",
+    "citizen_mode_tooltip": "Simplify complex legal jargon into easy-to-understand language.",
     "mode_grounded": "Grounded",
     "mode_general": "General"
   },
