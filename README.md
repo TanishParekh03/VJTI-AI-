@@ -24,57 +24,121 @@ The platform uses a modern, decoupled architecture designed for high throughput 
 
 ```mermaid
 graph TD
-    %% Define Styles: White BG, Black Text, Colorful Strokes
+    %% Define Styles
     classDef default fill:#ffffff,stroke:#64748b,stroke-width:2px,color:#000000;
-    classDef client fill:#ffffff,stroke:#3b82f6,stroke-width:3px,color:#000000,rx:8px,ry:8px;
-    classDef backend fill:#ffffff,stroke:#f59e0b,stroke-width:3px,color:#000000,rx:8px,ry:8px;
-    classDef db fill:#ffffff,stroke:#ef4444,stroke-width:3px,color:#000000,rx:8px,ry:8px;
-    classDef ai fill:#ffffff,stroke:#10b981,stroke-width:3px,color:#000000,rx:8px,ry:8px;
-    classDef feature fill:#f8fafc,stroke:#8b5cf6,stroke-width:2px,stroke-dasharray: 4 4,color:#000000,rx:8px,ry:8px;
+    classDef user fill:#f8fafc,stroke:#334155,stroke-width:3px,color:#000000,rx:8px,ry:8px;
+    classDef client fill:#f0f9ff,stroke:#0284c7,stroke-width:3px,color:#000000,rx:8px,ry:8px;
+    classDef backend fill:#fffbeb,stroke:#d97706,stroke-width:3px,color:#000000,rx:8px,ry:8px;
+    classDef db fill:#fef2f2,stroke:#dc2626,stroke-width:3px,color:#000000,rx:8px,ry:8px;
+    classDef ai fill:#f0fdf4,stroke:#16a34a,stroke-width:3px,color:#000000,rx:8px,ry:8px;
+    classDef feature fill:#faf5ff,stroke:#9333ea,stroke-width:2px,stroke-dasharray: 4 4,color:#000000,rx:8px,ry:8px;
 
-    %% User & Client Layer
-    User["👤 End User / Officer"]:::client
-    UI["🖥️ Next.js Frontend\nReact, TailwindCSS"]:::client
-    Speech["🎤 Speech-to-Text &\n🔊 Text-to-Speech\n(mr-IN, hi-IN, en-US)"]:::feature
-    
-    %% Backend Orchestration
-    API["⚙️ FastAPI Backend\nAuth, Rate Limiting, Orch."]:::backend
-    Trans["🌐 Dynamic Multilingual\nTranslation Service"]:::feature
-    
-    subgraph RAG_Pipeline [🧠 Advanced RAG Pipeline]
-        style RAG_Pipeline fill:#f8fafc,stroke:#cbd5e1,stroke-width:2px,color:#000000,rx:8px,ry:8px
-        Decomp["🧩 Query Decomposition\nSplit complex queries"]:::backend
-        HyDE["💡 HyDE\nGenerate Hypothetical Doc"]:::backend
-        Hybrid["🎯 Hybrid Search\nDense + Sparse Vectors"]:::backend
+    %% -----------------------------------------------------
+    %% 1. User Layer
+    %% -----------------------------------------------------
+    User["👤 Users\n(Admins, Officers, Faculty, Students)"]:::user
+
+    %% -----------------------------------------------------
+    %% 2. Frontend Layer (Next.js / React)
+    %% -----------------------------------------------------
+    subgraph Frontend [🖥️ Next.js SPA Frontend Layer]
+        style Frontend fill:#f8fafc,stroke:#cbd5e1,stroke-width:2px,color:#000000,rx:8px,ry:8px
+        
+        AuthUI["🔐 Auth & Landing\n(Maha-SSO / Credentials)"]:::client
+        ChatUI["💬 AI Assistant Workspace\n(Streaming, Citations, History)"]:::client
+        DocUI["📂 Document Library\n(Upload, Search, Preview)"]:::client
+        AdminUI["🛡️ Admin Panel\n(RBAC, User Management)"]:::client
+        AnalyticUI["📊 Analytics Dashboard\n(Recharts, Usage Metrics)"]:::client
+        
+        Speech["🎤 Speech-to-Text & TTS\n(mr-IN, hi-IN, en-US)"]:::feature
     end
-    
-    %% Databases
-    PG[("🐘 PostgreSQL\nUsers, Docs, Audit, Lineage")]:::db
-    QD[("🎯 Qdrant\nLocal Vector Storage")]:::db
-    
-    %% AI Models
-    LLM(("🤖 Maha-AI / Gemini\nFlash LLM Gateway")):::ai
-    Emb(("🔢 FastEmbed\nEmbedding Model BM25")):::ai
 
-    %% Connections
-    User -->|Voice / Text Prompts| UI
-    UI --- Speech
-    UI -->|REST API / SSE Streams| API
+    %% -----------------------------------------------------
+    %% 3. Backend Core (FastAPI)
+    %% -----------------------------------------------------
+    subgraph Backend [⚙️ FastAPI Backend Services]
+        style Backend fill:#f8fafc,stroke:#cbd5e1,stroke-width:2px,color:#000000,rx:8px,ry:8px
+        
+        API_Gate["🚪 API Gateway & Orch.\n(Auth, Rate Limiting - slowapi)"]:::backend
+        DocIngest["📥 Document Ingestion\n(PDF Parsing, Tesseract OCR)"]:::backend
+        ReportGen["📄 AI Report Generator\n(Summaries, Compliance)"]:::backend
+        Translate["🌐 Multilingual Service\n(Context-Aware Translation)"]:::feature
+        
+        subgraph RAG_Pipeline [🧠 Advanced RAG Pipeline]
+            style RAG_Pipeline fill:#ffffff,stroke:#e2e8f0,stroke-width:2px,color:#000000,rx:8px,ry:8px
+            Decomp["🧩 Query Decomposition"]:::backend
+            HyDE["💡 HyDE\n(Hypothetical Docs)"]:::backend
+            Hybrid["🎯 Hybrid Retrieval\n(Dense + Sparse)"]:::backend
+            Rerank["⚖️ Cross-Encoder Reranker\n(ms-marco-MiniLM)"]:::backend
+        end
+    end
+
+    %% -----------------------------------------------------
+    %% 4. AI & ML Models Layer
+    %% -----------------------------------------------------
+    subgraph AI_Models [🤖 External AI & ML Models]
+        style AI_Models fill:#f8fafc,stroke:#cbd5e1,stroke-width:2px,color:#000000,rx:8px,ry:8px
+        
+        LLM(("🧠 Maha-AI / Gemini\n(Generative & Synthesis)")):::ai
+        EmbDense(("🔢 Dense Embeddings\n(Gemini Embedder)")):::ai
+        EmbSparse(("🔠 Sparse Embeddings\n(FastEmbed BM25)")):::ai
+    end
+
+    %% -----------------------------------------------------
+    %% 5. Data & Storage Layer
+    %% -----------------------------------------------------
+    subgraph Storage [💾 Storage & Database Layer]
+        style Storage fill:#f8fafc,stroke:#cbd5e1,stroke-width:2px,color:#000000,rx:8px,ry:8px
+        
+        PG[("🐘 PostgreSQL\n(Users, Roles, Audit Logs)")]:::db
+        QD[("🎯 Qdrant\n(Local Vector DB)")]:::db
+        Supa[("📦 Supabase Storage\n(Original PDF Blobs)")]:::db
+    end
+
+    %% =====================================================
+    %% Connections & Flow
+    %% =====================================================
     
-    API <-->|Check Auth / Load Metadata| PG
-    API -->|Translate Document Summaries| Trans
-    Trans -.-> LLM
+    %% User to Frontend
+    User -->|Interacts| AuthUI
+    User -->|Prompts / Voice| ChatUI
+    User -->|Uploads / Views| DocUI
+    User -->|Manages| AdminUI
+    User -->|Monitors| AnalyticUI
     
-    API --> Decomp
-    Decomp --> HyDE
-    HyDE -->|Augmented Context| Hybrid
+    ChatUI --- Speech
     
-    Hybrid -->|1. Vectorize Query| Emb
-    Hybrid -->|2. Exact Match| QD
-    Hybrid -->|3. Retrieve Top Chunks| LLM
+    %% Frontend to Backend
+    AuthUI -->|Auth Tokens| API_Gate
+    ChatUI -->|SSE Stream / REST| API_Gate
+    DocUI -->|Multipart Uploads| API_Gate
+    AdminUI -->|REST API| API_Gate
+    AnalyticUI -->|Metrics Query| API_Gate
     
-    LLM -.->|Synthesise & Cite Sources| API
-    API -.->|Server-Sent Events| UI
+    %% Backend Core Interconnectivity
+    API_Gate <-->|Validate Auth / RBAC| PG
+    API_Gate --> DocIngest
+    API_Gate --> ReportGen
+    API_Gate --> Translate
+    
+    DocIngest -->|1. Store Raw File| Supa
+    DocIngest -->|2. Chunk & Embed| RAG_Pipeline
+    
+    %% RAG Pipeline Flow
+    API_Gate -->|User Query| Decomp
+    Decomp -->|Fast-Path or Split| HyDE
+    HyDE -->|Augmented Query| Hybrid
+    
+    Hybrid -->|Async Dense Call| EmbDense
+    Hybrid -->|Threaded Sparse Call| EmbSparse
+    
+    EmbDense & EmbSparse -->|Vector Search| QD
+    QD -->|Top 20 Chunks| Rerank
+    Rerank -->|Batched Precision Rerank| LLM
+    
+    LLM -.->|Synthesized & Cited Response| API_Gate
+    ReportGen -.->|Generate Templates| LLM
+    Translate -.->|Translate Content| LLM
 ```
 
 ---
