@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
-  ThumbsUp, ThumbsDown, Copy, Check, Sparkles, ChevronDown, ChevronUp, FileText, Download, Printer, Bookmark, BookmarkCheck, RotateCcw, AlertCircle, HelpCircle, Volume2, VolumeX, FileDown, CheckCircle2
+  ThumbsUp, ThumbsDown, Copy, Check, Sparkles, ChevronDown, ChevronUp, FileText, Download, Printer, Bookmark, BookmarkCheck, RotateCcw, AlertCircle, HelpCircle, Volume2, VolumeX, FileDown, CheckCircle2, Pencil
 } from 'lucide-react'
 import type { Message } from '@/lib/mock-data'
 import SourceCard from './SourceCard'
@@ -18,6 +18,7 @@ interface Props {
   onBookmark?: (id: string) => void
   onRegenerate?: (id: string) => void
   onCopy?: (content: string) => void
+  onEdit?: (content: string) => void
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
@@ -55,7 +56,7 @@ const ConfidenceBadge = ({ level }: { level: 'high' | 'medium' | 'none' }) => {
   )
 }
 
-export default function ChatMessage({ message, onFollowUp, onBookmark, onRegenerate, onCopy }: Props) {
+export default function ChatMessage({ message, onFollowUp, onBookmark, onRegenerate, onCopy, onEdit }: Props) {
   const { t, i18n } = useTranslation()
   const [sourcesOpen, setSourcesOpen] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -224,10 +225,30 @@ export default function ChatMessage({ message, onFollowUp, onBookmark, onRegener
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex justify-end"
+        className="flex justify-end mb-6 group"
       >
-        <div className="max-w-[80%] bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed">
-          {message.content}
+        <div className="flex flex-col items-end gap-1 max-w-[80%]">
+          <div className="bg-primary text-primary-foreground rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed">
+            {message.content}
+          </div>
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={handleCopy}
+              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+              title="Copy query"
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
+            </button>
+            {onEdit && (
+              <button
+                onClick={() => onEdit(message.content)}
+                className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+                title="Edit query"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </motion.div>
     )

@@ -627,6 +627,12 @@ export default function ChatScreen() {
                   onBookmark={() => showToast(t('chat.bookmarked'))}
                   onCopy={() => showToast(t('chat.copied'))}
                   onRegenerate={() => {}}
+                  onEdit={(text) => {
+                    setInput(text)
+                    if (textareaRef.current) {
+                      textareaRef.current.focus()
+                    }
+                  }}
                 />
               ))}
               {isThinking && <ThinkingIndicator />}
