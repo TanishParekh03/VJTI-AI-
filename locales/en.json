@@ -136,7 +136,13 @@
     "drop_to_upload": "Drop files here to upload",
     "file_formats": "PDF, DOCX, XLSX — up to 50 MB per file",
     "compare_hint": "Tip: Click the checkbox on any document card to select it for AI comparison",
-    "clear_filters": "Clear filters"
+    "clear_filters": "Clear filters",
+    "action_plan_title": "Action Plan & Procedure",
+    "ai_checklist_desc": "AI-generated compliance checklist",
+    "analyzing_doc": "Analyzing document...",
+    "extracting_steps": "Extracting actionable steps and deadlines.",
+    "generate_action_plan": "Generate Action Plan",
+    "close_action_plan": "Close Action Plan"
   },
   "analytics": {
     "dashboard": "Analytics & Insights",

@@ -33,7 +33,7 @@ export default function CompareModal({
   docB: Document
   onClose: () => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [result, setResult] = useState<CompareResult | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -51,7 +51,7 @@ export default function CompareModal({
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-          body: JSON.stringify({ doc_id_a: docA.id, doc_id_b: docB.id }),
+          body: JSON.stringify({ doc_id_a: docA.id, doc_id_b: docB.id, language: i18n.language }),
         })
         if (!res.ok) {
           const err = await res.json().catch(() => ({}))

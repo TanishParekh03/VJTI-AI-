@@ -48,6 +48,7 @@ class DocumentUpdate(BaseModel):
 class CompareRequest(BaseModel):
     doc_id_a: str
     doc_id_b: str
+    language: str | None = "en"
 
 
 class CompareResponse(BaseModel):

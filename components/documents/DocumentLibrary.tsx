@@ -134,7 +134,7 @@ function DocumentDetailDrawer({ doc, docs, onClose, onSelectForCompare, selected
     try {
       const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
       const token = typeof window !== 'undefined' ? localStorage.getItem('hte_access_token') : null
-      const res = await fetch(`${API_BASE}/documents/${doc.id}/checklist`, {
+      const res = await fetch(`${API_BASE}/documents/${doc.id}/checklist?language=${i18n.language}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       })
       if (res.ok) {
@@ -187,22 +187,25 @@ function DocumentDetailDrawer({ doc, docs, onClose, onSelectForCompare, selected
               <CheckSquare className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-foreground">Action Plan & Procedure</h2>
-              <p className="text-xs text-muted-foreground">AI-generated compliance checklist</p>
+              <h2 className="text-lg font-bold text-foreground">{t('docs.action_plan_title')}</h2>
+              <p className="text-xs text-muted-foreground">{t('docs.ai_checklist_desc')}</p>
             </div>
           </div>
           
           {isExtractingChecklist ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
-              <p className="text-sm font-medium text-foreground">Analyzing document...</p>
-              <p className="text-xs text-muted-foreground mt-1">Extracting actionable steps and deadlines.</p>
+              <p className="text-sm font-medium text-foreground">{t('docs.analyzing_doc')}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t('docs.extracting_steps')}</p>
             </div>
           ) : (
-            <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-bold prose-a:text-primary">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {checklistContent || ''}
-              </ReactMarkdown>
+            <div className="bg-white/50 dark:bg-card border border-border rounded-2xl shadow-sm p-6 sm:p-8 overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+              <div className="ai-prose relative z-10 text-foreground text-[14.5px] leading-relaxed max-w-none prose-headings:font-bold prose-a:text-primary">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {checklistContent || ''}
+                </ReactMarkdown>
+              </div>
             </div>
           )}
         </div>
@@ -310,7 +313,7 @@ function DocumentDetailDrawer({ doc, docs, onClose, onSelectForCompare, selected
           className="flex-1 min-w-[140px] h-9 rounded-lg border border-primary text-primary bg-primary/5 text-sm font-semibold hover:bg-primary/10 transition flex items-center justify-center gap-1.5"
         >
           <CheckSquare className="w-4 h-4" />
-          {isViewingChecklist ? 'Close Action Plan' : 'Generate Action Plan'}
+          {isViewingChecklist ? t('docs.close_action_plan') : t('docs.generate_action_plan')}
         </button>
         
         {!isViewingPdf && !isViewingChecklist && (

@@ -338,7 +338,8 @@ Produce a comparison covering these sections:
 4. **Common Ground** — Shared policies, eligibility criteria, or dates
 5. **Recommendation** — Which document takes precedence and why
 
-Start directly with a ### heading. Be concise and precise."""
+Start directly with a ### heading. Be concise and precise.
+Respond strictly in the following language code: {body.language}"""
 
     from app.services import llm_service
     messages = [{"role": "user", "content": prompt}]
@@ -777,6 +778,7 @@ async def extract_compliance_checklist(
     doc_id: str,
     user: CurrentUser,
     db: Annotated[AsyncSession, Depends(get_db)],
+    language: str = "en",
 ):
     """
     Extract a structured compliance checklist from a document.
@@ -813,7 +815,8 @@ Include:
 - ✅ **Eligibility Criteria**
 - ⚙️ **Actionable Next Steps** for officers or institutions
 
-If the document does not contain compliance items, return a polite message stating that this document appears to be purely informational."""
+If the document does not contain compliance items, return a polite message stating that this document appears to be purely informational.
+Respond strictly in the following language code: {language}"""
 
     from app.services import llm_service
     messages = [{"role": "user", "content": prompt}]
