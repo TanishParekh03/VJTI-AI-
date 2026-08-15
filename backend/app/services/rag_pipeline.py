@@ -22,9 +22,16 @@ import json
 import logging
 import time
 import uuid
+import asyncio
+import re
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 from typing import Any
+
+try:
+    from sentence_transformers import CrossEncoder
+except ImportError:
+    CrossEncoder = None
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,11 +46,26 @@ from app.services.retrieval_service import SearchResult
 
 logger = logging.getLogger(__name__)
 
+_cross_encoder = None
+def _get_cross_encoder():
+    global _cross_encoder
+    if _cross_encoder is None and CrossEncoder is not None:
+        logger.info("Loading CrossEncoder model...")
+        _cross_encoder = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+    return _cross_encoder
+
 # ── Confidence-level derivation ────────────────────────────────────────────────
 # Converts Supermemory's 0.0–1.0 float relevance score to the UI badge enum.
 # Must come from retrieval scores — never invented or hardcoded.
 
 def _score_to_confidence(score: float) -> str:
+    # Handle Reciprocal Rank Fusion (RRF) scores which are max ~0.016
+    if score > 0.015:
+        return "high"
+    if score > 0.010:
+        return "medium"
+        
+    # Handle standard cosine similarity scores
     if score >= 0.70:
         return "high"
     if score >= settings.relevance_threshold:
@@ -53,7 +75,7 @@ def _score_to_confidence(score: float) -> str:
 
 # ── System prompt assembly ─────────────────────────────────────────────────────
 
-def _build_system_prompt(results: list[SearchResult]) -> str:
+def _build_system_prompt(results: list[SearchResult], language: str | None = None, simplify: bool = False) -> str:
     context_blocks = "\n\n".join(
         f"[Source {i + 1}]\n"
         f"Title: {r.title}\n"
@@ -65,11 +87,26 @@ def _build_system_prompt(results: list[SearchResult]) -> str:
         for i, r in enumerate(results)
     )
 
-    return (
-        "You are the HTE AI Assistant for the Higher & Technical Education Department, "
-        "Government of Maharashtra. Your sole purpose is to answer questions about HTE "
+    lang_map = {"en": "English", "hi": "Hindi", "mr": "Marathi"}
+    target_lang = lang_map.get(language, "English") if language else "English"
+
+    base_prompt = (
+        "You are Vachak Ai, the official AI Assistant for the Higher & Technical Education Department, "
+        "Government of Maharashtra. Your sole purpose is to answer questions about policy "
         "policies, circulars, scholarships, and guidelines using ONLY the official documents "
         "provided below.\n\n"
+    )
+
+    if simplify:
+        base_prompt += (
+            "CRITICAL INSTRUCTION - CITIZEN MODE ACTIVE: You must explain the answer in the absolute simplest terms possible. "
+            "Explain it as if you are talking to a 10-year-old or an uneducated citizen. "
+            "Remove all complex legal jargon, administrative terminology, and complicated clauses. "
+            "Use simple analogies if necessary. Keep the tone friendly and highly accessible.\n\n"
+        )
+
+    return (
+        base_prompt +
         "RULES — follow without exception:\n"
         "1. Answer ONLY using the provided document context. Every factual claim must be "
         "traceable to a source below.\n"
@@ -78,9 +115,9 @@ def _build_system_prompt(results: list[SearchResult]) -> str:
         "3. Use precise figures, circular numbers, and section references as they appear "
         "in the documents.\n"
         "4. FORMATTING: Format your answer in elegant, executive Markdown. Never start with conversational intros like 'Based on the provided document...' or 'Here is what I found:'. Start immediately with a clean <h3> title (e.g., ### State Merit Scholarship — Income Criteria).\n"
-        "5. TABLES & VISUAL STRUCTURE: Whenever presenting criteria, percentages, dates, weightages, or income limits, ALWAYS use clean Markdown Tables (| Category | Value / Weightage |).\n"
+        "5. TABLES & VISUAL STRUCTURE: Whenever presenting criteria, percentages, dates, weightages, or income limits, ALWAYS use clean Markdown Tables. CRUCIAL: Do NOT paste huge raw paragraphs of text inside table cells. Summarize points concisely in the table cells, and use `<br>` to break lines. If a description is very long, use bullet points OUTSIDE the table instead.\n"
         "6. BULLETS & CALLOUTS: Use clean bullet points with **bold lead-ins** for key conditions. Use blockquotes (> **Note:** ...) for important caveats or circular references.\n"
-        "7. BILINGUAL LANGUAGE MATCHING: Detect the language of the user's question. If the user asks in Marathi (मराठी), provide your complete answer in clear, natural Marathi while keeping exact circular numbers and figures accurate. If the user asks in English, answer in English.\n"
+        f"7. BILINGUAL LANGUAGE MATCHING: You MUST formulate your entire response in **{target_lang}**. This is a strict requirement. All explanations, headings, and tables must be in {target_lang}. **CRITICAL:** You must preserve official Government terminology (e.g., specific names of schemes, legal phrases, department names) in their original form while translating responses.\n"
         "8. Do NOT speculate about policies not present in the provided documents.\n\n"
 
         "GR CONFLICT & SUPERSESSION DETECTION — CRITICAL:\n"
@@ -94,8 +131,8 @@ def _build_system_prompt(results: list[SearchResult]) -> str:
         "(e.g. different income limits, different dates), highlight the conflict explicitly:\n"
         "   > 🔄 **Conflict Detected**: [Source A] states X while [Source B] states Y. "
         "The more recent document (dated [DATE]) takes precedence per standard GR protocol.\n"
-        "11. ALWAYS cite the GR/circular number and date when available. Format as:\n"
-        "   **GR No.** `[number]` dated `[DD Month YYYY]`\n\n"
+        "11. MANDATORY SOURCE TAGGING: YOU MUST add the exact GR number or Circular number to EVERY summary or reference you make. "
+        "Highlight it clearly by wrapping it in a tag. Format specifically as: 📌 **GR No.** `[number]` dated 🗓️ `[DD Month YYYY]`\n\n"
 
         f"OFFICIAL DOCUMENT CONTEXT:\n{context_blocks}"
     )
@@ -116,6 +153,11 @@ async def run_rag_pipeline(
     message_text: str,
     conversation_id: str | None,
     db: AsyncSession,
+    language: str | None = None,
+    mode: str = "grounded",
+    report_prompt: str | None = None,
+    attached_file_text: str | None = None,
+    simplify: bool = False,
 ) -> AsyncGenerator[str, None]:
     """
     Full RAG pipeline as an async SSE generator.
@@ -132,6 +174,7 @@ async def run_rag_pipeline(
     pipeline_start = time.monotonic()
     sm_latency_ms: float | None = None
     llm_latency_ms: float | None = None
+    logger.info(f"STARTING RAG PIPELINE. Message: {message_text!r} | Report Prompt: {report_prompt!r}")
 
     try:
         # ── Step 1: Resolve access-scoped container tags ───────────────────────
@@ -141,32 +184,110 @@ async def run_rag_pipeline(
         if conversation_id and conversation_id.startswith("c-"):
             conversation_id = None
 
-        history_messages: list[dict[str, str]] = []
-        if conversation_id:
-            result = await db.execute(
-                select(Message)
-                .where(Message.conversation_id == conversation_id)
-                .order_by(Message.created_at.desc())
-                .limit(settings.conversation_history_turns * 2)
-            )
-            prior_messages = list(reversed(result.scalars().all()))
-            for m in prior_messages:
-                role = "assistant" if m.role == "assistant" else "user"
-                history_messages.append({"role": role, "content": m.content})
+        # Grounded Mode with HyDE
+        async def fetch_history() -> list[dict[str, str]]:
+            hist = []
+            if conversation_id:
+                res = await db.execute(
+                    select(Message)
+                    .where(Message.conversation_id == conversation_id)
+                    .order_by(Message.created_at.desc())
+                    .limit(settings.conversation_history_turns * 2)
+                )
+                prior = list(reversed(res.scalars().all()))
+                for m in prior:
+                    r = "assistant" if m.role == "assistant" else "user"
+                    hist.append({"role": r, "content": m.content})
+            return hist
 
-        # ── Step 3: Supermemory search ─────────────────────────────────────────
+        history_messages = await fetch_history()
+            
+        # ── Step 3a: Extract Filters and decide on simple vs complex flow ──────────────
+        filters = await llm_service.extract_search_filters(message_text)
+        
+        # Heuristic for simple queries: short or contains specific exact match markers
+        is_short = len(message_text.split()) < 6
+        has_exact_marker = bool(re.search(r'\b(gr|date|20\d\d)\b', message_text, re.IGNORECASE))
+        
+        all_results = []
+        seen_snippets = set()
         sm_start = time.monotonic()
-        search_results = await retrieval_service.search(
-            query=message_text,
-            container_tags=container_tags,
-        )
+        
+        if is_short or has_exact_marker:
+            # Skip HyDE & Decomposition for exact matches / short queries
+            logger.info(f"Using direct hybrid search for simple query: '{message_text}'")
+            sub_results = await retrieval_service.search(
+                query=message_text,
+                container_tags=container_tags,
+                filters=filters,
+                limit=20,
+            )
+            for res in sub_results:
+                if res.snippet not in seen_snippets:
+                    seen_snippets.add(res.snippet)
+                    all_results.append(res)
+        else:
+            # Full Decomp + HyDE pipeline
+            logger.info("Using full decomp + HyDE pipeline")
+            subqueries = await llm_service.decompose_query(message_text)
+            
+            for subquery in subqueries:
+                hyde_doc = await llm_service.generate_hypothetical_answer(subquery)
+                enriched_query = f"{subquery}\n\n{hyde_doc}"
+                
+                sub_results = await retrieval_service.search(
+                    query=enriched_query,
+                    container_tags=container_tags,
+                    filters=filters,
+                    limit=10,
+                )
+                
+                for res in sub_results:
+                    if res.snippet not in seen_snippets:
+                        seen_snippets.add(res.snippet)
+                        all_results.append(res)
+                        
+        # ── Cross-Encoder Reranking ───────────────────────────────────────────
+        # Cap candidates to 15-20 max for reranking speed
+        candidates = all_results[:20]
+        
+        if candidates and CrossEncoder is not None:
+            reranker = _get_cross_encoder()
+            if reranker:
+                # Build pairs and run one batched prediction
+                pairs = [[message_text, c.snippet] for c in candidates]
+                
+                rerank_start = time.perf_counter()
+                # predict() accepts a list of pairs and runs in C++/CUDA batched mode
+                scores = await asyncio.to_thread(reranker.predict, pairs)
+                rerank_time = time.perf_counter() - rerank_start
+                logger.info(f"Cross-encoder reranked {len(candidates)} pairs in {rerank_time:.4f}s")
+                
+                # Assign new scores
+                for c, s in zip(candidates, scores):
+                    c.relevance_score = float(s)
+                    
+                # Re-sort by cross-encoder score
+                candidates.sort(key=lambda x: x.relevance_score, reverse=True)
+        else:
+            # Fallback to pure RRF sorting if no reranker available
+            candidates.sort(key=lambda x: x.relevance_score, reverse=True)
+
+        search_results = candidates[:settings.max_context_results]
+        
         sm_latency_ms = (time.monotonic() - sm_start) * 1000
 
         # ── Step 4: No-results branch (HARD RULE — no LLM call here) ──────────
+        # Check if we are using RRF scores (which are tiny, max ~0.016)
+        is_rrf = search_results and search_results[0].relevance_score < 0.1
+        threshold = 0.01 if is_rrf else settings.relevance_threshold
+        
         above_threshold = [
-            r for r in search_results if r.relevance_score >= settings.relevance_threshold
+            r for r in search_results if r.relevance_score >= threshold
         ]
-        if not above_threshold:
+        
+        # If user attached a file, they can ask questions about it even if Qdrant finds nothing.
+        if not above_threshold and not attached_file_text:
             logger.info(
                 "rag_not_found",
                 extra={
@@ -190,8 +311,8 @@ async def run_rag_pipeline(
                     conv = Conversation(
                         id=conversation_id,
                         user_id=user.id,
-                        title=message_text[:60] + ("…" if len(message_text) > 60 else ""),
-                        preview=message_text[:160],
+                        title=message_text.replace('\x00', '')[:60] + ("…" if len(message_text) > 60 else ""),
+                        preview=message_text.replace('\x00', '')[:160],
                         message_count=0,
                     )
                     db.add(conv)
@@ -199,8 +320,8 @@ async def run_rag_pipeline(
                 await _persist_user_message(db, conversation_id, message_text)
             yield _sse(
                 "not_found",
-                {"message": "No supporting information found in official HTE documents for this question. "
-                            "Please try rephrasing, or ask about a different HTE policy area."}
+                {"message": "No supporting information found in official documents for this question. "
+                            "Please try rephrasing, or ask about a different policy area."}
             )
             if conversation_id:
                 await db.commit()
@@ -208,11 +329,19 @@ async def run_rag_pipeline(
             return
 
         # ── Step 5: Assemble strict grounded system prompt ────────────────────
-        system_prompt = _build_system_prompt(above_threshold)
+        system_prompt = _build_system_prompt(above_threshold, language, simplify)
+        
+        if attached_file_text:
+            system_prompt += f"\n\n=========================================\n"
+            system_prompt += f"USER ATTACHED FILE CONTENT:\n{attached_file_text}\n"
+            system_prompt += f"=========================================\n"
+            system_prompt += f"Treat this attached file as highly relevant verified context.\n"
+            
+        user_content = report_prompt if report_prompt else message_text
         llm_messages: list[dict[str, str]] = [
             {"role": "system", "content": system_prompt},
             *history_messages,
-            {"role": "user", "content": message_text},
+            {"role": "user", "content": user_content},
         ]
 
         # ── Step 6 & 7: Stream LLM tokens ─────────────────────────────────────
@@ -224,8 +353,8 @@ async def run_rag_pipeline(
         llm_latency_ms = (time.monotonic() - llm_start) * 1000
 
         # ── Compute confidence from top Supermemory relevance score ────────────
-        top_score = above_threshold[0].relevance_score
-        confidence_label = _score_to_confidence(top_score)
+        top_score = above_threshold[0].relevance_score if above_threshold else 0.99
+        confidence_label = _score_to_confidence(top_score) if above_threshold else "high"
 
         # ── Build sources payload matching frontend Source interface ───────────
         sources_payload = [
@@ -236,6 +365,7 @@ async def run_rag_pipeline(
                 "page": r.page,
                 "section": r.section,
                 "snippet": r.snippet[:300],  # truncate for SSE payload size
+                "document_id": r.supermemory_doc_id,
             }
             for r in above_threshold[:settings.max_context_results]
         ]
@@ -258,8 +388,8 @@ async def run_rag_pipeline(
             conv = Conversation(
                 id=conv_id,
                 user_id=user.id,
-                title=message_text[:60] + ("…" if len(message_text) > 60 else ""),
-                preview=message_text[:160],
+                title=message_text.replace('\x00', '')[:60] + ("…" if len(message_text) > 60 else ""),
+                preview=message_text.replace('\x00', '')[:160],
                 message_count=0,
             )
             db.add(conv)
@@ -273,7 +403,7 @@ async def run_rag_pipeline(
         asst_msg = Message(
             conversation_id=conv_id,
             role="assistant",
-            content=full_answer,
+            content=full_answer.replace('\x00', ''),
             confidence=confidence_label,
             confidence_score=top_score,
         )
@@ -283,14 +413,34 @@ async def run_rag_pipeline(
         for r in above_threshold[:settings.max_context_results]:
             src = Source(
                 message_id=asst_msg.id,
-                title=r.title,
+                title=r.title.replace('\x00', '') if r.title else None,
                 doc_type=r.doc_type,
                 page=r.page,
                 section=r.section,
-                snippet=r.snippet,
+                snippet=r.snippet.replace('\x00', '') if r.snippet else None,
                 relevance_score=r.relevance_score,
+                document_id=r.supermemory_doc_id,
             )
             db.add(src)
+
+        # Log detailed audit for explainability
+        from app.models.audit_log import AuditLog
+        audit = AuditLog(
+            user_id=user.id,
+            conversation_id=conv_id,
+            query=message_text.replace('\x00', ''),
+            retrieved_context=[{
+                "title": r.title.replace('\x00', '') if r.title else None,
+                "snippet": r.snippet.replace('\x00', '')[:1000] if r.snippet else None, # truncated to avoid massive logs
+                "relevance_score": r.relevance_score,
+                "document_id": r.supermemory_doc_id
+            } for r in above_threshold[:settings.max_context_results]],
+            llm_prompt=json.dumps(llm_messages, ensure_ascii=False),
+            llm_response=full_answer,
+            relevance_score=top_score,
+            confidence_badge=confidence_label,
+        )
+        db.add(audit)
 
         # Update conversation stats
         await db.execute(
@@ -353,7 +503,7 @@ async def _persist_user_message(db: AsyncSession, conversation_id: str, content:
     msg = Message(
         conversation_id=conversation_id,
         role="user",
-        content=content,
+        content=content.replace('\x00', ''),
     )
     db.add(msg)
     await db.flush()

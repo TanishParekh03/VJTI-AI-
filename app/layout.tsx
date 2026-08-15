@@ -6,7 +6,7 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains' })
 
 export const metadata: Metadata = {
-  title: 'HTE AI Assistant — Higher & Technical Education',
+  title: 'Vachak Ai — Higher & Technical Education',
   description: 'Ask anything about HTE policies, circulars & guidelines — instantly, with sources.',
   generator: 'v0.app',
 }

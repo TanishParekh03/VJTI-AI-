@@ -10,8 +10,24 @@ import {
   ChevronRight, Tag, Calendar, Layers, MoreHorizontal,
   BookOpen, GitCompare, Loader2, Sparkles, CheckSquare, Square
 } from 'lucide-react'
+import dynamic from 'next/dynamic'
 import { MOCK_DOCUMENTS, DOC_CATEGORIES, type Document, type DocStatus } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
+import { GRTimeline } from './GRTimeline'
+
+// Lazy load CompareModal to avoid compiling react-markdown/remark-gfm immediately
+const CompareModal = dynamic(() => import('./CompareModal'), {
+  loading: () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-4xl bg-card border border-border rounded-2xl shadow-2xl p-10 flex flex-col items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+        <p className="text-sm text-muted-foreground">Loading AI Comparison engine...</p>
+      </div>
+    </div>
+  ),
+  ssr: false
+})
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
 function getToken() {
@@ -42,174 +58,108 @@ const fileTypeIcon: Record<string, React.ReactNode> = {
   XLSX: <Layers className="w-4 h-4 text-green-500" />,
 }
 
-// ── Compare Modal ─────────────────────────────────────────────────────────────
-
-interface CompareResult {
-  comparison: string
-  doc_a_title: string
-  doc_b_title: string
+function extractGrNumber(title: string, id: string): string {
+  const match = title.match(/20\d{16}/);
+  if (match) return `GR-${match[0]}`;
+  const match2 = title.match(/(?:GR|Circular)[\s\-_]*(?:No)?[\s\-_]*([A-Z0-9\-\/]+)/i);
+  if (match2 && match2[1]) return `GR-${match2[1].toUpperCase()}`;
+  return `GR-${id.substring(0, 8).toUpperCase()}`;
 }
 
-function CompareModal({
-  docA,
-  docB,
-  onClose,
-}: {
-  docA: Document
-  docB: Document
-  onClose: () => void
-}) {
-  const [result, setResult] = useState<CompareResult | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    async function runCompare() {
-      setLoading(true)
-      setError(null)
-      try {
-        const token = getToken()
-        const res = await fetch(`${API_BASE}/documents/compare`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ doc_id_a: docA.id, doc_id_b: docB.id }),
-        })
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}))
-          throw new Error(err.detail || `HTTP ${res.status}`)
-        }
-        const data: CompareResult = await res.json()
-        if (!cancelled) setResult(data)
-      } catch (e: any) {
-        if (!cancelled) setError(e.message || 'Comparison failed')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    runCompare()
-    return () => { cancelled = true }
-  }, [docA.id, docB.id])
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-    >
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 12 }}
-        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-        className="w-full max-w-4xl max-h-[90vh] bg-card border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
-      >
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-border flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-            <GitCompare className="w-4 h-4 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-sm font-bold text-foreground">Document Comparison</h2>
-            <p className="text-xs text-muted-foreground truncate">
-              AI-powered policy analysis
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Document labels */}
-        <div className="grid grid-cols-2 gap-px bg-border border-b border-border">
-          {[docA, docB].map((doc, i) => (
-            <div key={doc.id} className={cn('px-5 py-3 bg-card', i === 0 ? 'border-r border-border' : '')}>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">
-                Document {i === 0 ? 'A' : 'B'}
-              </p>
-              <div className="flex items-center gap-2">
-                {fileTypeIcon[doc.fileType]}
-                <p className="text-sm font-semibold text-foreground truncate">{doc.title}</p>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">{doc.category} · {new Date(doc.uploadDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading && (
-            <div className="flex flex-col items-center justify-center py-20 gap-4">
-              <div className="relative">
-                <div className="w-12 h-12 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-                <Sparkles className="absolute inset-0 m-auto w-5 h-5 text-primary" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-semibold text-foreground">Analysing Documents…</p>
-                <p className="text-xs text-muted-foreground mt-1">AI is generating a structured comparison</p>
-              </div>
-            </div>
-          )}
-          {error && (
-            <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-950/40 flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
-              </div>
-              <p className="text-sm font-medium text-foreground">Comparison Failed</p>
-              <p className="text-xs text-muted-foreground">{error}</p>
-            </div>
-          )}
-          {result && !loading && (
-            <div className="ai-prose text-foreground text-sm leading-relaxed">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {result.comparison}
-              </ReactMarkdown>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-6 py-3 border-t border-border flex items-center justify-between">
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-primary" />
-            Generated by HTE AI · Based on official document summaries
-          </p>
-          <button
-            onClick={onClose}
-            className="h-8 px-4 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-muted transition"
-          >
-            Close
-          </button>
-        </div>
-      </motion.div>
-    </motion.div>
-  )
-}
+// CompareModal is now imported dynamically
 
 // ── Document Detail Drawer ────────────────────────────────────────────────────
 
-function DocumentDetailDrawer({ doc, onClose, onSelectForCompare, selectedForCompare }: {
+function DocumentDetailDrawer({ doc, docs, onClose, onSelectForCompare, selectedForCompare }: {
   doc: Document
+  docs: Document[]
   onClose: () => void
   onSelectForCompare: (d: Document) => void
   selectedForCompare: Document[]
 }) {
+  const { t } = useTranslation()
+  const [isViewingPdf, setIsViewingPdf] = useState(false)
+  const [isViewingChecklist, setIsViewingChecklist] = useState(false)
+  const [checklistContent, setChecklistContent] = useState<string | null>(null)
+  const [isExtractingChecklist, setIsExtractingChecklist] = useState(false)
+  const [translatedSummary, setTranslatedSummary] = useState<string | null>(null)
+  const [isTranslatingSummary, setIsTranslatingSummary] = useState(false)
+  const { i18n } = useTranslation()
   const isSelected = selectedForCompare.some((d) => d.id === doc.id)
+
+  useEffect(() => {
+    if (!doc.summary || i18n.language === 'en') {
+      setTranslatedSummary(null)
+      setIsTranslatingSummary(false)
+      return
+    }
+
+    let isMounted = true
+    setIsTranslatingSummary(true)
+
+    const fetchTranslation = async () => {
+      try {
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
+        const token = typeof window !== 'undefined' ? localStorage.getItem('hte_access_token') : null
+        const res = await fetch(`${API_BASE}/documents/${doc.id}/translate?language=${i18n.language}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (isMounted) setTranslatedSummary(data.summary)
+        }
+      } catch (err) {
+        console.error(err)
+      } finally {
+        if (isMounted) setIsTranslatingSummary(false)
+      }
+    }
+
+    fetchTranslation()
+
+    return () => { isMounted = false }
+  }, [doc.id, doc.summary, i18n.language])
+
+  const handleGenerateChecklist = async () => {
+    if (checklistContent) {
+      setIsViewingChecklist(true)
+      setIsViewingPdf(false)
+      return
+    }
+    
+    setIsExtractingChecklist(true)
+    setIsViewingChecklist(true)
+    setIsViewingPdf(false)
+    
+    try {
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
+      const token = typeof window !== 'undefined' ? localStorage.getItem('hte_access_token') : null
+      const res = await fetch(`${API_BASE}/documents/${doc.id}/checklist?language=${i18n.language}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setChecklistContent(data.checklist)
+      } else {
+        setChecklistContent("Failed to extract procedure checklist. Please try again later.")
+      }
+    } catch (err) {
+      setChecklistContent("Error communicating with server.")
+    } finally {
+      setIsExtractingChecklist(false)
+    }
+  }
+  
   return (
     <motion.div
       initial={{ x: '100%' }}
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-      className="fixed inset-y-0 right-0 w-full sm:w-[480px] bg-card border-l border-border shadow-2xl z-50 flex flex-col"
+      className={cn(
+        "fixed inset-y-0 right-0 w-full bg-card border-l border-border shadow-2xl z-50 flex flex-col transition-all",
+        (isViewingPdf || isViewingChecklist) ? "sm:w-[85vw] max-w-6xl" : "sm:w-[480px]"
+      )}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-border">
@@ -222,97 +172,173 @@ function DocumentDetailDrawer({ doc, onClose, onSelectForCompare, selectedForCom
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-5 space-y-5">
-        {/* Status + metadata */}
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { label: 'Status', value: <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border', statusCfg[doc.status].className)}>{statusCfg[doc.status].icon}{doc.status}</span> },
-            { label: 'File Type', value: doc.fileType },
-            { label: 'File Size', value: doc.fileSize },
-            { label: 'Pages', value: `${doc.pages} pages` },
-            { label: 'Upload Date', value: new Date(doc.uploadDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) },
-            { label: 'Versions', value: `v${doc.versions}` },
-          ].map(({ label, value }) => (
-            <div key={label} className="p-3 rounded-lg bg-muted/50 border border-border">
-              <p className="text-xs text-muted-foreground mb-1">{label}</p>
-              <div className="text-sm font-medium text-foreground">{value}</div>
+      {isViewingPdf ? (
+        <div className="flex-1 overflow-hidden relative bg-muted/20">
+          <iframe 
+            src={`${process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'}/documents/${doc.id}/download`} 
+            className="w-full h-full border-0" 
+            title="Document Viewer"
+          />
+        </div>
+      ) : isViewingChecklist ? (
+        <div className="flex-1 overflow-y-auto p-6 bg-card">
+          <div className="flex items-center gap-3 mb-6 pb-4 border-b border-border">
+            <div className="p-2.5 bg-primary/10 rounded-xl">
+              <CheckSquare className="w-6 h-6 text-primary" />
             </div>
-          ))}
-        </div>
-
-        {/* AI Summary */}
-        <div className="rounded-xl border border-border p-4">
-          <div className="flex items-center gap-2 mb-2.5">
-            <BookOpen className="w-3.5 h-3.5 text-primary" />
-            <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">AI-Generated Summary</h3>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">{t('docs.action_plan_title')}</h2>
+              <p className="text-xs text-muted-foreground">{t('docs.ai_checklist_desc')}</p>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground leading-relaxed">{doc.summary}</p>
+          
+          {isExtractingChecklist ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <Loader2 className="w-8 h-8 animate-spin text-primary mb-4" />
+              <p className="text-sm font-medium text-foreground">{t('docs.analyzing_doc')}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t('docs.extracting_steps')}</p>
+            </div>
+          ) : (
+            <div className="bg-white/50 dark:bg-card border border-border rounded-2xl shadow-sm p-6 sm:p-8 overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+              <div className="ai-prose relative z-10 text-foreground text-[14.5px] leading-relaxed max-w-none prose-headings:font-bold prose-a:text-primary">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {checklistContent || ''}
+                </ReactMarkdown>
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* Tags */}
-        <div>
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Tags</h3>
-          <div className="flex flex-wrap gap-1.5">
-            {doc.tags.map((tag) => (
-              <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-medium">
-                <Tag className="w-3 h-3" />
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Related (static) */}
-        <div>
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Related Documents</h3>
-          <div className="space-y-1.5">
-            {MOCK_DOCUMENTS.filter((d) => d.category === doc.category && d.id !== doc.id).slice(0, 3).map((d) => (
-              <button key={d.id} className="w-full flex items-center gap-2.5 p-2.5 rounded-lg border border-border bg-card hover:border-primary/30 hover:bg-primary/5 transition-colors text-left">
-                {fileTypeIcon[d.fileType]}
-                <span className="text-sm text-foreground truncate flex-1">{d.title}</span>
-                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40" />
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Version history */}
-        <div>
-          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Version History</h3>
-          <div className="space-y-1.5">
-            {Array.from({ length: doc.versions }).reverse().map((_, i) => (
-              <div key={i} className="flex items-center justify-between p-2.5 rounded-lg border border-border">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Version {doc.versions - i}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(new Date(doc.uploadDate).getTime() - i * 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </p>
-                </div>
-                {i === 0 && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Current</span>}
+      ) : (
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {/* Status + metadata */}
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: t('docs.status'), value: <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border', statusCfg[doc.status].className)}>{statusCfg[doc.status].icon}{t(`docs.${doc.status.toLowerCase()}`)}</span> },
+              { label: 'GR Number', value: <span className="font-mono text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-0.5 rounded font-bold tracking-tight">{extractGrNumber(doc.title, doc.id)}</span> },
+              { label: t('docs.file_type'), value: doc.fileType },
+              { label: t('docs.file_size'), value: doc.fileSize },
+              { label: t('docs.pages'), value: `${doc.pages} ${t('docs.pages').toLowerCase()}` },
+              { label: t('docs.upload_date'), value: new Date(doc.uploadDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) },
+              { label: t('docs.versions'), value: `v${doc.versions}` },
+            ].map(({ label, value }) => (
+              <div key={label} className="p-3 rounded-lg bg-muted/50 border border-border">
+                <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                <div className="text-sm font-medium text-foreground">{value}</div>
               </div>
             ))}
           </div>
-        </div>
-      </div>
 
-      <div className="p-4 border-t border-border flex gap-2">
-        <button className="flex-1 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition">
-          Open Document
-        </button>
-        <button
-          onClick={() => onSelectForCompare(doc)}
-          className={cn(
-            'h-9 px-3 rounded-lg border text-sm font-medium transition flex items-center gap-1.5',
-            isSelected
-              ? 'border-primary bg-primary/10 text-primary'
-              : 'border-border text-foreground hover:bg-muted'
-          )}
+          {/* AI Summary */}
+          <div className="rounded-xl border border-border p-4">
+            <div className="flex items-center justify-between mb-2.5">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-3.5 h-3.5 text-primary" />
+                <h3 className="text-xs font-semibold text-foreground uppercase tracking-wider">{t('docs.ai_summary')}</h3>
+              </div>
+              {isTranslatingSummary && (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary opacity-70" />
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {translatedSummary || doc.summary || t('docs.default_summary', 'Official Higher & Technical Education department document registered in system.')}
+            </p>
+          </div>
+
+          {/* Tags */}
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{t('docs.tags')}</h3>
+            <div className="flex flex-wrap gap-1.5">
+              {doc.tags.map((tag) => (
+                <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground text-xs font-medium">
+                  <Tag className="w-3 h-3" />
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Related (dynamic) */}
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{t('docs.related_documents')}</h3>
+            <div className="space-y-1.5">
+              {docs.filter((d) => d.category === doc.category && d.id !== doc.id).slice(0, 3).map((d) => (
+                <button key={d.id} className="w-full flex items-center gap-2.5 p-2.5 rounded-lg border border-border bg-card hover:border-primary/30 hover:bg-primary/5 transition-colors text-left">
+                  {fileTypeIcon[d.fileType]}
+                  <span className="text-sm text-foreground truncate flex-1">{d.title}</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40" />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Version history */}
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{t('docs.version_history')}</h3>
+            <div className="space-y-1.5">
+              {Array.from({ length: doc.versions }).reverse().map((_, i) => (
+                <div key={i} className="flex items-center justify-between p-2.5 rounded-lg border border-border">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{t('docs.versions')} {doc.versions - i}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(new Date(doc.uploadDate).getTime() - i * 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </p>
+                  </div>
+                  {i === 0 && <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">{t('docs.current')}</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* GR Timeline */}
+          <div className="mt-6">
+            <GRTimeline docId={doc.id} />
+          </div>
+        </div>
+      )}
+
+      <div className="p-4 border-t border-border flex flex-wrap gap-2">
+        <button 
+          onClick={() => {
+            setIsViewingPdf(!isViewingPdf)
+            setIsViewingChecklist(false)
+          }}
+          className="flex-1 min-w-[120px] h-9 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition"
         >
-          <GitCompare className="w-3.5 h-3.5" />
-          {isSelected ? 'Selected' : 'Compare'}
+          {isViewingPdf ? 'View Details' : t('docs.open_document')}
         </button>
-        <button className="h-9 px-4 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition">
-          Download
+        
+        <button 
+          onClick={isViewingChecklist ? () => setIsViewingChecklist(false) : handleGenerateChecklist}
+          className="flex-1 min-w-[140px] h-9 rounded-lg border border-primary text-primary bg-primary/5 text-sm font-semibold hover:bg-primary/10 transition flex items-center justify-center gap-1.5"
+        >
+          <CheckSquare className="w-4 h-4" />
+          {isViewingChecklist ? t('docs.close_action_plan') : t('docs.generate_action_plan')}
+        </button>
+        
+        {!isViewingPdf && !isViewingChecklist && (
+          <button
+            onClick={() => onSelectForCompare(doc)}
+            className={cn(
+              'h-9 px-3 rounded-lg border text-sm font-medium transition flex items-center gap-1.5',
+              isSelected
+                ? 'border-primary bg-primary/10 text-primary'
+                : 'border-border text-foreground hover:bg-muted'
+            )}
+          >
+            <GitCompare className="w-3.5 h-3.5" />
+            {isSelected ? t('docs.selected') : t('docs.compare')}
+          </button>
+        )}
+        
+        <button 
+          onClick={() => {
+            const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
+            window.location.href = `${API_BASE}/documents/${doc.id}/download`
+          }}
+          className="h-9 px-4 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition"
+        >
+          {t('docs.download')}
         </button>
       </div>
     </motion.div>
@@ -356,8 +382,11 @@ function DocCard({ doc, onOpen, onToggleCompare, isCompareSelected }: {
 
       <h3 className="text-sm font-semibold text-foreground leading-snug mb-1.5 line-clamp-2">{doc.title}</h3>
 
-      <div className="flex items-center gap-1.5 mb-2">
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-medium">
+      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400 text-xs font-bold font-mono tracking-tight border border-indigo-100 dark:border-indigo-500/20">
+          📌 {extractGrNumber(doc.title, doc.id)}
+        </span>
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground text-xs font-medium">
           <Tag className="w-2.5 h-2.5" />
           {doc.category}
         </span>
@@ -407,7 +436,12 @@ function DocRow({ doc, onOpen, onToggleCompare, isCompareSelected }: {
         {fileTypeIcon[doc.fileType]}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">{doc.title}</p>
+        <div className="flex items-center gap-2 mb-0.5">
+          <p className="text-sm font-medium text-foreground truncate">{doc.title}</p>
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400 text-[10px] font-bold font-mono tracking-tight border border-indigo-100 dark:border-indigo-500/20 shrink-0">
+            📌 {extractGrNumber(doc.title, doc.id)}
+          </span>
+        </div>
         <p className="text-xs text-muted-foreground truncate">{doc.summary}</p>
       </div>
       <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-medium shrink-0">
@@ -435,6 +469,7 @@ function CompareBar({
   onClear: () => void
   onCompare: () => void
 }) {
+  const { t } = useTranslation()
   return (
     <motion.div
       initial={{ y: 100, opacity: 0 }}
@@ -446,8 +481,8 @@ function CompareBar({
         <GitCompare className="w-4 h-4 text-primary" />
         <span className="text-sm font-semibold text-foreground">
           {selected.length === 1
-            ? 'Select 1 more document to compare'
-            : `Comparing ${selected.length} documents`}
+            ? t('docs.select_1_more')
+            : `${t('docs.comparing')} ${selected.length} ${t('docs.pages').toLowerCase()}`}
         </span>
       </div>
       <div className="flex items-center gap-1.5">
@@ -464,11 +499,12 @@ function CompareBar({
         className="h-8 px-4 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
       >
         <Sparkles className="w-3.5 h-3.5" />
-        Compare
+        {t('docs.compare')}
       </button>
       <button
         onClick={onClear}
-        className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition"
+        className="w-8 h-8 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        title={t('docs.clear')}
       >
         <X className="w-4 h-4" />
       </button>
@@ -476,9 +512,10 @@ function CompareBar({
   )
 }
 
-// ── Main DocumentLibrary ──────────────────────────────────────────────────────
+// ── Main Component ────────────────────────────────────────────────────────────
 
 export default function DocumentLibrary() {
+  const { t } = useTranslation()
   const [view, setView] = useState<'grid' | 'list'>('grid')
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
@@ -488,6 +525,7 @@ export default function DocumentLibrary() {
   const [isDragging, setIsDragging] = useState(false)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
   const [showFilters, setShowFilters] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Compare state
@@ -499,8 +537,9 @@ export default function DocumentLibrary() {
     setTimeout(() => setToastMsg(null), 2500)
   }, [])
 
-  const fetchBackendDocs = useCallback(async () => {
+  const fetchBackendDocs = useCallback(async (isInitial = false) => {
     try {
+      if (isInitial) setIsLoading(true)
       const token = getToken()
       const res = await fetch(`${API_BASE}/documents`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -520,21 +559,21 @@ export default function DocumentLibrary() {
             status: d.status === 'indexed' ? 'Indexed' : d.status === 'failed' ? 'Failed' : 'Processing',
             summary: d.summary || 'Official Higher & Technical Education department document registered in system.',
             tags: Array.isArray(d.tags) ? d.tags : (typeof d.tags === 'string' ? JSON.parse(d.tags || '[]') : ['HTE', 'Official']),
-            versions: [
-              { version: 'v1.0', date: d.upload_date ? d.upload_date.slice(0, 10) : 'Current', author: 'System Admin' }
-            ]
+            versions: d.versions || 1
           }))
           setDocs(apiDocs)
         }
       }
     } catch {
       // Backend error fallback
+    } finally {
+      if (isInitial) setIsLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    fetchBackendDocs()
-    const interval = setInterval(fetchBackendDocs, 5000)
+    fetchBackendDocs(true)
+    const interval = setInterval(() => fetchBackendDocs(false), 5000)
     return () => clearInterval(interval)
   }, [fetchBackendDocs])
 
@@ -606,7 +645,7 @@ export default function DocumentLibrary() {
       {/* Header */}
       <div className="px-6 py-4 border-b border-border bg-card flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
         <div className="flex-1">
-          <h1 className="text-lg font-bold text-foreground">Document Library</h1>
+          <h1 className="text-lg font-bold text-foreground">{t('docs.document_library')}</h1>
           <p className="text-sm text-muted-foreground">{docs.length} documents · {docs.filter((d) => d.status === 'Indexed').length} indexed</p>
         </div>
         <div className="flex items-center gap-2">
@@ -616,7 +655,7 @@ export default function DocumentLibrary() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search documents…"
+              placeholder={t('docs.search_docs')}
               className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none w-48"
             />
           </div>
@@ -625,20 +664,22 @@ export default function DocumentLibrary() {
             className={cn('h-9 px-3 rounded-lg border text-sm flex items-center gap-1.5 transition-colors', showFilters ? 'border-primary bg-primary/10 text-primary' : 'border-input bg-background text-muted-foreground hover:text-foreground')}
           >
             <Filter className="w-3.5 h-3.5" />
-            Filters
+            {t('docs.filters')}
           </button>
-          <div className="flex items-center rounded-lg border border-input overflow-hidden">
+          <div className="flex items-center p-1 rounded-lg border border-border bg-muted/50">
             <button
               onClick={() => setView('grid')}
-              className={cn('h-9 w-9 flex items-center justify-center transition-colors', view === 'grid' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:text-foreground')}
+              title={t('docs.grid_view')}
+              className={cn('p-1.5 rounded-md transition-colors', view === 'grid' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
             >
-              <LayoutGrid className="w-3.5 h-3.5" />
+              <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               onClick={() => setView('list')}
-              className={cn('h-9 w-9 flex items-center justify-center transition-colors', view === 'list' ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground hover:text-foreground')}
+              title={t('docs.list_view')}
+              className={cn('p-1.5 rounded-md transition-colors', view === 'list' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
             >
-              <LayoutList className="w-3.5 h-3.5" />
+              <LayoutList className="w-4 h-4" />
             </button>
           </div>
           <button
@@ -646,7 +687,7 @@ export default function DocumentLibrary() {
             className="h-9 px-3.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-1.5 hover:opacity-90 transition"
           >
             <Upload className="w-3.5 h-3.5" />
-            Upload
+            {t('docs.upload')}
           </button>
         </div>
       </div>
@@ -662,7 +703,7 @@ export default function DocumentLibrary() {
           >
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium text-muted-foreground">Category:</span>
+                <span className="text-xs font-medium text-muted-foreground">{t('docs.category')}:</span>
                 <div className="flex flex-wrap gap-1">
                   {DOC_CATEGORIES.slice(0, 8).map((cat) => (
                     <button
@@ -676,7 +717,7 @@ export default function DocumentLibrary() {
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-xs font-medium text-muted-foreground">Status:</span>
+                <span className="text-xs font-medium text-muted-foreground">{t('docs.status')}:</span>
                 {(['All', 'Indexed', 'Processing', 'Failed'] as const).map((s) => (
                   <button
                     key={s}
@@ -703,9 +744,9 @@ export default function DocumentLibrary() {
           <Upload className={cn('w-5 h-5', isDragging ? 'text-primary' : 'text-muted-foreground')} />
           <div>
             <p className={cn('text-sm font-medium', isDragging ? 'text-primary' : 'text-muted-foreground')}>
-              Drop files here to upload
+              {t('docs.drop_to_upload')}
             </p>
-            <p className="text-xs text-muted-foreground/60">PDF, DOCX, XLSX — up to 50 MB per file</p>
+            <p className="text-xs text-muted-foreground/60">{t('docs.file_formats')}</p>
           </div>
         </div>
 
@@ -713,20 +754,26 @@ export default function DocumentLibrary() {
         {docs.length >= 2 && compareSelection.length === 0 && (
           <div className="mb-4 flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 border border-border rounded-lg px-3 py-2">
             <GitCompare className="w-3.5 h-3.5 text-primary shrink-0" />
-            <span>Tip: Click the <strong>checkbox</strong> on any document card to select it for AI comparison</span>
+            <span>{t('docs.compare_hint')}</span>
           </div>
         )}
 
         {/* Document grid / list */}
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mb-3">
-              <FileText className="w-6 h-6 text-muted-foreground/40" />
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary/60 mb-4" />
+            <p className="text-sm font-medium text-foreground">Loading documents...</p>
+            <p className="text-xs text-muted-foreground mt-1">Fetching the latest official records.</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+              <FileText className="w-8 h-8 text-muted-foreground/40" />
             </div>
-            <p className="text-foreground font-medium mb-1">No documents found</p>
-            <p className="text-sm text-muted-foreground">Try adjusting your search or filters</p>
+            <h3 className="text-lg font-semibold text-foreground mb-1">{t('docs.no_docs_found')}</h3>
+            <p className="text-sm text-muted-foreground">{t('docs.try_different_search')}</p>
             <button onClick={() => { setSearch(''); setSelectedCategory('All'); setSelectedStatus('All') }} className="mt-3 text-sm text-primary hover:underline">
-              Clear filters
+              {t('docs.clear_filters')}
             </button>
           </div>
         ) : view === 'grid' ? (
@@ -770,6 +817,7 @@ export default function DocumentLibrary() {
             />
             <DocumentDetailDrawer
               doc={selectedDoc}
+              docs={docs}
               onClose={() => setSelectedDoc(null)}
               onSelectForCompare={(doc) => { toggleCompareSelection(doc); setSelectedDoc(null) }}
               selectedForCompare={compareSelection}

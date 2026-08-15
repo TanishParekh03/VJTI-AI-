@@ -4,7 +4,7 @@ LLM Service — Provider-Agnostic Streaming Wrapper
 ALL LLM provider calls live here and ONLY here.
 No other module imports google.generativeai or openai directly.
 
-The active provider is selected by the LLM_PROVIDER env var (default: "gemini").
+The active provider is selected by the LLM_PROVIDER env var (default: "maha_ai").
 """
 from __future__ import annotations
 
@@ -23,20 +23,20 @@ LLMMessage = dict[str, str]  # {"role": "user"|"model"|"system", "content": str}
 
 # ── Provider implementations ──────────────────────────────────────────────────
 
-class _GeminiProvider:
-    """Google Gemini streaming provider."""
+class _MahaAIProvider:
+    """Maha-AI (Local/Gov) streaming provider."""
 
     def __init__(self) -> None:
         import google.generativeai as genai  # type: ignore[import]
 
-        if not settings.gemini_api_key:
+        if not settings.maha_ai_api_key:
             raise RuntimeError(
-                "GEMINI_API_KEY is not set. Add it to your .env file."
+                "MAHA_AI_API_KEY is not set. Add it to your .env file."
             )
-        genai.configure(api_key=settings.gemini_api_key)
+        genai.configure(api_key=settings.maha_ai_api_key)
         self._genai = genai
-        self._model_name = settings.gemini_model
-        logger.info("llm_provider_initialized", extra={"provider": "gemini", "model": self._model_name})
+        self._model_name = settings.maha_ai_model
+        logger.info("llm_provider_initialized", extra={"provider": "maha_ai", "model": self._model_name})
 
     async def generate(
         self,
@@ -146,9 +146,9 @@ class _OpenAIProvider:
 # NOTE: Not cached — always creates fresh provider so .env changes take effect
 # without a full server restart.
 
-def _get_provider() -> _GeminiProvider | _OpenAIProvider:
-    if settings.llm_provider == "gemini":
-        return _GeminiProvider()
+def _get_provider() -> _MahaAIProvider | _OpenAIProvider:
+    if settings.llm_provider == "maha_ai":
+        return _MahaAIProvider()
     return _OpenAIProvider()
 
 
@@ -204,11 +204,13 @@ async def generate_summary_and_tags(text: str, title: str = "") -> tuple[str, li
         f"Document Content Excerpt:\n{text[:3500]}\n\n"
         "Task:\n"
         "1. Write a clean, 2-3 sentence executive summary explaining the main purpose, scope, and key directives of this document.\n"
-        "2. Provide 3-5 relevant short tags (e.g. ['NEP-2020', 'University Recruitment', 'Scholarships', 'AICTE Circular', 'Policy', 'Student Welfare']).\n\n"
-        "Return ONLY a raw JSON object with keys 'summary' and 'tags', nothing else:\n"
+        "2. Provide 3-5 relevant short tags (e.g. ['NEP-2020', 'University Recruitment', 'Scholarships', 'AICTE Circular', 'Policy', 'Student Welfare']).\n"
+        "3. Also extract an 'applicability' tag which MUST be one of: 'govt', 'aided', 'unaided', 'autonomous', 'all', or 'other'.\n\n"
+        "Return ONLY a raw JSON object with keys 'summary', 'tags', and 'applicability', nothing else:\n"
         "{\n"
         '  "summary": "...",\n'
-        '  "tags": ["tag1", "tag2", "tag3"]\n'
+        '  "tags": ["tag1", "tag2", "tag3"],\n'
+        '  "applicability": "aided"\n'
         "}"
     )
 
@@ -228,10 +230,160 @@ async def generate_summary_and_tags(text: str, title: str = "") -> tuple[str, li
         data = json.loads(clean_str)
         summary = str(data.get("summary", "")).strip() or f"Official document covering {title or 'HTE policies'}."
         tags = [str(t).strip() for t in data.get("tags", []) if t][:5]
+        applicability = str(data.get("applicability", "all")).lower()
+        
+        if applicability not in ["govt", "aided", "unaided", "autonomous", "all", "other"]:
+            applicability = "all"
+            
+        tags.append(f"applicability:{applicability}")
+            
         if not tags:
-            tags = ["HTE", "Policy", "Official"]
+            tags = ["HTE", "Policy", "Official", "applicability:all"]
         return summary, tags
     except Exception as exc:
         logger.warning("ai_summary_generation_fallback", extra={"error": str(exc)})
-        fallback_summary = f"Official Higher & Technical Education document regarding {title or 'government policy'}."
         return fallback_summary, ["HTE", "Government Policy"]
+
+async def generate_hypothetical_answer(query: str) -> str:
+    """
+    HyDE (Hypothetical Document Embeddings): Generate a hypothetical answer
+    to the query. Embedding this hypothetical answer improves semantic search
+    retrieval significantly compared to embedding the raw question.
+    """
+    prompt = (
+        "You are an expert policy assistant for the Maharashtra Government Higher & Technical Education department. "
+        "A user is searching for documents to answer the following query: "
+        f"'{query}'\n\n"
+        "Write a 1-paragraph hypothetical snippet from an official Government Resolution (GR) or circular "
+        "that would perfectly answer this query. Write it in an authoritative, bureaucratic tone. "
+        "Do not include any pleasantries or conversational filler. Just the hypothetical text."
+    )
+    messages: list[LLMMessage] = [{"role": "user", "content": prompt}]
+    hypothetical_doc = ""
+    try:
+        async for chunk in generate(messages, stream=False):
+            hypothetical_doc += chunk
+        return hypothetical_doc.strip()
+    except Exception as exc:
+        logger.warning(f"Failed to generate hypothetical answer: {exc}")
+        return query
+
+async def decompose_query(query: str) -> list[str]:
+    """
+    Decompose complex or multi-part queries into standalone sub-queries.
+    Example: 'What is the eligibility for X and has it changed since 2022?'
+    -> ['What is the eligibility for X?', 'Has the eligibility for X changed since 2022?']
+    """
+    import json
+    prompt = (
+        "You are an AI query decomposition expert. A user asked the following question:\n"
+        f"'{query}'\n\n"
+        "If the question contains multiple separate concepts or is asking for multiple things, "
+        "break it down into 2-3 simpler standalone questions. If it is already a single simple question, "
+        "just return a list with the original question.\n"
+        "Return ONLY a raw JSON array of strings, nothing else:\n"
+        '["Question 1", "Question 2"]'
+    )
+    messages: list[LLMMessage] = [{"role": "user", "content": prompt}]
+    raw_response = ""
+    try:
+        async for chunk in generate(messages, stream=False):
+            raw_response += chunk
+        clean_str = raw_response.strip()
+        if clean_str.startswith("```"):
+            clean_str = clean_str.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        if clean_str.startswith("json"):
+            clean_str = clean_str[4:].strip()
+        
+        queries = json.loads(clean_str)
+        if isinstance(queries, list) and queries:
+            return queries
+        return [query]
+    except Exception as exc:
+        logger.warning(f"Failed to decompose query: {exc}")
+        return [query]
+
+async def extract_search_filters(query: str) -> dict:
+    """
+    Extract exact metadata filters from the user's query to pre-filter Qdrant.
+    Looks for departments (e.g. pharmacy, engineering) and years.
+    Returns dict like: {"department": "pharmacy", "year": "2023"}
+    """
+    import json
+    prompt = (
+        "You are an AI query metadata extractor. Extract any explicit metadata constraints "
+        "mentioned in the following user query: "
+        f"'{query}'\n\n"
+        "Look for:\n"
+        "1. 'department': e.g., 'pharmacy', 'engineering', 'hte', 'technical education'\n"
+        "2. 'category': e.g., 'gr', 'circular', 'notice', 'policy'\n"
+        "If a constraint is not explicitly mentioned, omit the key or set it to null.\n"
+        "Return ONLY a raw JSON object, nothing else:\n"
+        '{"department": "pharmacy", "category": "notice"}'
+    )
+    messages: list[LLMMessage] = [{"role": "user", "content": prompt}]
+    raw_response = ""
+    try:
+        async for chunk in generate(messages, stream=False):
+            raw_response += chunk
+        clean_str = raw_response.strip()
+        if clean_str.startswith("```"):
+            clean_str = clean_str.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        if clean_str.startswith("json"):
+            clean_str = clean_str[4:].strip()
+        
+        filters = json.loads(clean_str)
+        if isinstance(filters, dict):
+            # Clean up nulls
+            return {k: v for k, v in filters.items() if v is not None}
+        return {}
+    except Exception as exc:
+        logger.warning(f"Failed to extract search filters: {exc}")
+        return {}
+
+async def extract_document_lineage(text: str) -> list[dict]:
+    """
+    Extract relationships to other Government Resolutions from the document text.
+    Identifies 'supersedes', 'amends', 'references', and 'clarifies' relationships.
+    Returns strict JSON list of objects.
+    """
+    import json
+    prompt = (
+        "You are an AI document linkage expert. Read the following Government Document text "
+        "and identify any references to other official Government Resolutions (GRs) or Circulars.\n\n"
+        f"TEXT:\n{text[:15000]}\n\n"
+        "For each reference, determine the relationship type. Must be one of:\n"
+        "- 'supersedes' (if the document cancels, replaces, or supersedes the older GR)\n"
+        "- 'amends' (if it modifies or adds to the older GR)\n"
+        "- 'references' (if it simply cites or mentions the older GR)\n"
+        "- 'clarifies' (if it provides clarification on the older GR)\n\n"
+        "Extract the exact reference number/date (e.g. 'GR No. 2024-123' or 'dated 14 May 2021').\n"
+        "Return ONLY a raw JSON array of objects, with no markdown fences, no preamble, and no explanation.\n"
+        "Schema for each object:\n"
+        "{\n"
+        "  \"target_reference\": \"string (the extracted GR number or date)\",\n"
+        "  \"relationship_type\": \"string (supersedes/amends/references/clarifies)\",\n"
+        "  \"confidence\": float (0.0 to 1.0),\n"
+        "  \"extracted_text\": \"string (the exact sentence providing evidence)\"\n"
+        "}\n"
+    )
+    messages: list[LLMMessage] = [{"role": "user", "content": prompt}]
+    raw_response = ""
+    try:
+        async for chunk in generate(messages, stream=False):
+            raw_response += chunk
+            
+        clean_str = raw_response.strip()
+        if clean_str.startswith("```"):
+            clean_str = clean_str.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+        if clean_str.startswith("json"):
+            clean_str = clean_str[4:].strip()
+            
+        relationships = json.loads(clean_str)
+        if isinstance(relationships, list):
+            return relationships
+        return []
+    except Exception as exc:
+        logger.warning(f"Failed to extract document lineage: {exc}")
+        return []
+

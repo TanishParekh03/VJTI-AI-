@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status, UploadFile, File
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,6 +34,25 @@ from app.services.rag_pipeline import run_rag_pipeline
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
+@router.post("/extract-file")
+async def extract_chat_file(
+    user: CurrentUser,
+    file: UploadFile = File(...),
+) -> dict:
+    """
+    Fast, lightweight endpoint to extract text from a file uploaded directly in the chat.
+    Bypasses Qdrant and Supabase for immediate AI context.
+    """
+    from app.api.documents import _extract_text_from_file_bytes
+    
+    file_bytes = await file.read()
+    if len(file_bytes) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File too large (max 50MB)")
+        
+    text = _extract_text_from_file_bytes(file_bytes, file.filename or "")
+    return {"filename": file.filename, "extracted_text": text}
+
+
 @router.post("/stream")
 async def chat_stream(
     body: ChatRequest,
@@ -51,6 +70,11 @@ async def chat_stream(
             user=user,
             message_text=body.message,
             conversation_id=body.conversation_id,
+            language=body.language,
+            mode=body.mode,
+            report_prompt=body.report_prompt,
+            attached_file_text=body.attached_file_text,
+            simplify=body.simplify,
             db=db,
         ):
             # If client disconnected, stop generating
@@ -94,6 +118,7 @@ async def get_conversation_history(
 ) -> ConversationRead:
     """Return a full conversation thread with messages and source citations."""
     from datetime import datetime, timezone
+    from sqlalchemy.orm import selectinload
 
     if conversation_id.startswith("c-"):
         return ConversationRead(
@@ -108,48 +133,49 @@ async def get_conversation_history(
         )
 
     result = await db.execute(
-        select(Conversation).where(
+        select(Conversation)
+        .where(
             Conversation.id == conversation_id,
             Conversation.user_id == user.id,
+        )
+        .options(
+            selectinload(Conversation.messages).selectinload(Message.sources)
         )
     )
     conv = result.scalar_one_or_none()
     if not conv:
-        return ConversationRead(
-            id=conversation_id,
-            user_id=user.id,
-            title="New conversation",
-            preview="",
-            message_count=0,
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
-            messages=[],
-        )
+        raise HTTPException(status_code=404, detail="Conversation not found")
 
-    # Eagerly load messages with sources
-    msg_result = await db.execute(
+    return ConversationRead.model_validate(conv)
+
+
+@router.post("/messages/{message_id}/feedback", response_model=MessageRead)
+async def update_message_feedback(
+    message_id: str,
+    body: FeedbackRequest,
+    user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> MessageRead:
+    """Provide helpful/not_helpful feedback on an AI response."""
+    result = await db.execute(
         select(Message)
-        .where(Message.conversation_id == conversation_id)
-        .order_by(Message.created_at)
+        .join(Conversation)
+        .where(Message.id == message_id, Conversation.user_id == user.id)
     )
-    messages = msg_result.scalars().all()
+    message = result.scalar_one_or_none()
+    if not message:
+        raise HTTPException(status_code=404, detail="Message not found")
 
-    # Load sources for assistant messages
-    from sqlalchemy.orm import selectinload
-    msg_result2 = await db.execute(
-        select(Message)
-        .where(Message.conversation_id == conversation_id)
-        .options(selectinload(Message.sources))
-        .order_by(Message.created_at)
-    )
-    messages_with_sources = msg_result2.scalars().all()
+    if message.role != "assistant":
+        raise HTTPException(status_code=400, detail="Can only provide feedback on assistant messages")
 
-    conv_data = ConversationRead.model_validate(conv)
-    conv_data.messages = [MessageRead.model_validate(m) for m in messages_with_sources]
-    return conv_data
+    message.feedback = body.feedback
+    await db.commit()
+    await db.refresh(message)
+    return MessageRead.model_validate(message)
 
 
-@router.delete("/sessions/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+@router.delete("/history/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
 async def delete_conversation(
     conversation_id: str,
     user: CurrentUser,

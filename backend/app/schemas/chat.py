@@ -10,6 +10,11 @@ from app.schemas.source import SourceRead
 class ChatRequest(BaseModel):
     message: str
     conversation_id: str | None = None  # null = new conversation
+    language: str | None = None
+    mode: Literal["grounded", "general"] = "grounded"
+    report_prompt: str | None = None
+    attached_file_text: str | None = None
+    simplify: bool = False
 
 
 class MessageRead(BaseModel):

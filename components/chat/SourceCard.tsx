@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { FileText, File, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import type { Source } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   source: Source
@@ -23,6 +24,7 @@ const typeBg: Record<string, string> = {
 }
 
 export default function SourceCard({ source, index }: Props) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
 
   return (
@@ -40,18 +42,21 @@ export default function SourceCard({ source, index }: Props) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <p className="font-medium text-foreground truncate">{source.title}</p>
-            <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border font-medium shrink-0', typeBg[source.type])}>
+            <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] border font-bold shrink-0', typeBg[source.type])}>
               {typeIcons[source.type]}
               {source.type}
             </span>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Page {source.page} · {source.section}
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {t('chat.page')} {source.page} · {source.section}
           </p>
         </div>
 
-        {/* Expand toggle */}
-        <div className="shrink-0 text-muted-foreground">
+        {/* Right Info & Expand toggle */}
+        <div className="shrink-0 flex items-center gap-3 text-muted-foreground">
+          <span className="text-[11px] font-mono text-muted-foreground/60">
+            {source.page ? `Pg. ${source.page}` : '14 Aug 2023'}
+          </span>
           {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </div>
       </div>
@@ -62,10 +67,23 @@ export default function SourceCard({ source, index }: Props) {
           <p className="text-xs text-muted-foreground mt-2.5 leading-relaxed italic">
             &ldquo;{source.snippet}&rdquo;
           </p>
-          <button className="mt-2 flex items-center gap-1 text-xs text-primary hover:underline">
-            <ExternalLink className="w-3 h-3" />
-            View full document
-          </button>
+          {source.document_id ? (
+            <button 
+              onClick={() => {
+                const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1'
+                window.open(`${API_BASE}/documents/${source.document_id}/download`, '_blank')
+              }}
+              className="mt-2 flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              <ExternalLink className="w-3 h-3" />
+              {t('chat.view_full_document')}
+            </button>
+          ) : (
+            <button className="mt-2 flex items-center gap-1 text-xs text-muted-foreground cursor-not-allowed" title="Document file unavailable">
+              <ExternalLink className="w-3 h-3" />
+              {t('chat.view_full_document')}
+            </button>
+          )}
         </div>
       )}
     </div>

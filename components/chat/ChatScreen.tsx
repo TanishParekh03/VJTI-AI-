@@ -4,13 +4,15 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Send, Paperclip, Sparkles, GraduationCap, Zap,
-  RefreshCw, CheckSquare, Map as MapIcon, Users, ChevronRight, PanelRight
+  RefreshCw, CheckSquare, Map as MapIcon, Users, ChevronRight, PanelRight,
+  Mic, MicOff, FileText, Search, X, Loader2
 } from 'lucide-react'
 import { SUGGESTED_PROMPTS, type Message, type Conversation } from '@/lib/mock-data'
 import ChatSidebar from './ChatSidebar'
 import ChatMessage from './ChatMessage'
 import SourceCard from './SourceCard'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 const ICON_MAP: Record<string, React.ElementType> = {
   GraduationCap, Zap, RefreshCw, CheckSquare, Map: MapIcon, Users,
@@ -25,19 +27,27 @@ function getAuthToken(): string | null {
 }
 
 function ThinkingIndicator() {
+  const { t } = useTranslation()
   return (
     <div className="flex gap-3">
       <div className="shrink-0 w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center mt-1">
         <Sparkles className="w-4 h-4 text-primary animate-pulse" />
       </div>
-      <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3.5 shadow-sm">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <div className="flex-1 bg-card border border-border rounded-2xl rounded-tl-sm px-4 pt-3.5 pb-4 shadow-sm max-w-[85%]">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3">
           <span className="flex gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '0ms' }} />
             <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '150ms' }} />
             <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '300ms' }} />
           </span>
-          Searching documents and generating response…
+          {t('chat.searching') || "Searching for information..."}
+        </div>
+        
+        {/* Skeleton lines for the answer block */}
+        <div className="space-y-2.5 animate-pulse mt-2">
+          <div className="h-[14px] bg-muted/60 rounded-full w-[100%]"></div>
+          <div className="h-[14px] bg-muted/60 rounded-full w-[85%]"></div>
+          <div className="h-[14px] bg-muted/60 rounded-full w-[60%]"></div>
         </div>
       </div>
     </div>
@@ -61,64 +71,101 @@ function StreamingMessage({ content }: { content: string }) {
 }
 
 function EmptyState({ onPrompt }: { onPrompt: (text: string) => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center h-full px-4 py-12">
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 200, damping: 20 }}
-        className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-4"
-      >
-        <Sparkles className="w-7 h-7 text-primary" />
-      </motion.div>
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="text-center mb-8"
-      >
-        <h2 className="text-xl font-bold text-foreground mb-1.5">Higher &amp; Technical Education Assistant</h2>
-        <p className="text-muted-foreground text-sm max-w-sm">
-          Ask me anything about HTE policies, AICTE circulars, scholarships, or guidelines — I&apos;ll find the answer with grounded sources.
-        </p>
-      </motion.div>
+  const { t } = useTranslation()
+  
+  const CATEGORIES = [
+    { label: t('chat.cat_admissions', 'Admissions'), color: 'bg-blue-50 text-blue-500 border-blue-200' },
+    { label: t('chat.cat_scholarships', 'Scholarships'), color: 'bg-amber-50 text-amber-500 border-amber-200' },
+    { label: t('chat.cat_institutions', 'Institutions'), color: 'bg-teal-50 text-teal-500 border-teal-200' },
+    { label: t('chat.cat_policies', 'Policies'), color: 'bg-violet-50 text-violet-500 border-violet-200' },
+    { label: t('chat.cat_placements', 'Placements'), color: 'bg-green-50 text-green-500 border-green-200' },
+    { label: t('chat.cat_exams', 'Exams'), color: 'bg-rose-50 text-rose-500 border-rose-200' },
+  ]
 
+  return (
+    <div className="flex flex-col items-center justify-center h-full px-4 py-16 overflow-y-auto">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 w-full max-w-2xl"
+        className="text-center w-full max-w-3xl mb-8"
       >
-        {SUGGESTED_PROMPTS.map((prompt, i) => {
-          const Icon = ICON_MAP[prompt.icon] || Sparkles
-          return (
-            <motion.button
+        <h1 className="text-4xl sm:text-5xl font-bold text-foreground mb-4 tracking-[-0.03em] leading-tight text-balance">
+          {t('chat.hero_title', 'Ask anything about Maharashtra government policies, circulars & guidelines')}
+        </h1>
+        <p className="text-muted-foreground text-[17px] mb-8">
+          {t('chat.hero_subtitle', 'Answers grounded in official documents.')}
+        </p>
+        <div className="w-full h-px bg-border max-w-xl mx-auto mb-8" />
+        
+        {/* Suggestion Chips */}
+        <div className="flex flex-wrap justify-center gap-3 mb-12">
+          {SUGGESTED_PROMPTS.slice(0, 3).map((prompt, i) => (
+            <button
               key={prompt.label}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 + i * 0.05 }}
               onClick={() => onPrompt(prompt.label)}
-              className="text-left p-3.5 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-primary/5 transition-all group"
+              className="flex items-center gap-2.5 px-4 py-2 rounded-full border border-border bg-card hover:border-primary/30 hover:bg-muted transition-all text-sm font-medium text-foreground whitespace-nowrap"
             >
-              <div className="flex items-start gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/15 transition-colors">
-                  <Icon className="w-3.5 h-3.5 text-primary" />
+              <span className="w-1.5 h-1.5 rounded-full bg-[#1a73e8]" />
+              {i === 0 ? t('chat.prompt_1', prompt.label) : i === 1 ? t('chat.prompt_2', prompt.label) : t('chat.prompt_3', prompt.label)}
+            </button>
+          ))}
+        </div>
+
+        {/* How it works strip */}
+        <div className="flex items-center justify-center gap-2 sm:gap-6 mb-16 text-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1a73e8] flex items-center justify-center border border-blue-100">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <span className="text-muted-foreground font-medium hidden sm:inline">{t('chat.ask', 'Ask')}</span>
+          </div>
+          <div className="w-8 sm:w-16 border-t-2 border-dashed border-border" />
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100">
+              <RefreshCw className="w-4 h-4" />
+            </div>
+            <span className="text-muted-foreground font-medium hidden sm:inline">{t('chat.search', 'Search')}</span>
+          </div>
+          <div className="w-8 sm:w-16 border-t-2 border-dashed border-border" />
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
+              <CheckSquare className="w-4 h-4" />
+            </div>
+            <span className="text-muted-foreground font-medium hidden sm:inline">{t('chat.verify', 'Verify')}</span>
+          </div>
+        </div>
+
+        {/* Section transition */}
+        <div className="flex items-center gap-4 mb-10 w-full max-w-2xl mx-auto">
+          <div className="flex-1 h-px bg-border" />
+          <span className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">{t('chat.browse', 'Browse')}</span>
+          <div className="flex-1 h-px bg-border" />
+        </div>
+
+        {/* Category Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 w-full max-w-2xl mx-auto">
+          {CATEGORIES.map((cat, i) => (
+            <button
+              key={cat.label}
+              className="group flex items-center justify-between p-3 rounded-xl border border-border bg-card hover:border-primary/30 transition-all text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${cat.color}`}>
+                  <FileText className="w-4 h-4" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground leading-snug">{prompt.label}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{prompt.description}</p>
-                </div>
+                <span className="text-[15px] font-medium text-foreground">{cat.label}</span>
               </div>
-              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/40 group-hover:text-primary mt-2 ml-auto transition-colors" />
-            </motion.button>
-          )
-        })}
+              <ChevronRight className="w-4 h-4 text-muted-foreground/0 group-hover:text-primary group-hover:text-muted-foreground/100 transition-all -translate-x-2 group-hover:translate-x-0" />
+            </button>
+          ))}
+        </div>
       </motion.div>
     </div>
   )
 }
 
 export default function ChatScreen() {
+  const { t, i18n } = useTranslation()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [currentConvId, setCurrentConvId] = useState<string | null>(null)
   const [input, setInput] = useState('')
@@ -126,7 +173,16 @@ export default function ChatScreen() {
   const [streamingText, setStreamingText] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [rightPanelOpen, setRightPanelOpen] = useState(false)
+  const [chatMode] = useState<'grounded'>('grounded')
+  const [simplify, setSimplify] = useState(false)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const [isListening, setIsListening] = useState(false)
+  const recognitionRef = useRef<any>(null)
+  const [attachedFileName, setAttachedFileName] = useState<string | null>(null)
+  const [attachedFileText, setAttachedFileText] = useState<string | null>(null)
+  const [isExtractingFile, setIsExtractingFile] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const speechStartInputRef = useRef<string>('')
 
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -139,6 +195,53 @@ export default function ChatScreen() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isThinking, streamingText])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      recognitionRef.current = new SpeechRecognition()
+      recognitionRef.current.continuous = true
+      recognitionRef.current.interimResults = true
+
+      recognitionRef.current.onresult = (event: any) => {
+        let transcript = ''
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript
+        }
+        
+        setInput(() => {
+          const base = speechStartInputRef.current
+          return base + (base.endsWith(' ') || base.length === 0 ? '' : ' ') + transcript
+        })
+      }
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error', event.error)
+        setIsListening(false)
+      }
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false)
+      }
+    }
+  }, [])
+
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop()
+      setIsListening(false)
+    } else {
+      speechStartInputRef.current = input
+      if (recognitionRef.current) {
+        let langCode = 'en-US'
+        if (i18n.language === 'mr') langCode = 'mr-IN'
+        if (i18n.language === 'hi') langCode = 'hi-IN'
+        recognitionRef.current.lang = langCode
+      }
+      recognitionRef.current?.start()
+      setIsListening(true)
+    }
+  }
 
   const showToast = useCallback((msg: string) => {
     setToastMsg(msg)
@@ -207,10 +310,11 @@ export default function ChatScreen() {
               ? m.sources.map((src: any) => ({
                   id: src.id,
                   title: src.title,
-                  type: src.doc_type || 'PDF',
+                  type: src.type || 'PDF',
                   page: src.page ? parseInt(src.page) : undefined,
                   section: src.section,
                   snippet: src.snippet || '',
+                  document_id: src.document_id,
                 }))
               : [],
             timestamp: new Date(m.created_at || Date.now()),
@@ -247,14 +351,20 @@ export default function ChatScreen() {
 
   // ── Send message ───────────────────────────────────────────────────────────
   const sendMessage = useCallback(async (text: string) => {
-    if (!text.trim() || isThinking) return
+    if ((!text.trim() && !attachedFileText) || isThinking || isExtractingFile) return
 
     const userMsg: Message = {
       id: `msg-${Date.now()}`,
       role: 'user',
-      content: text.trim(),
+      content: text.trim() || 'Uploaded a file for analysis',
       timestamp: new Date(),
     }
+    
+    // Store attachments locally and immediately clear UI state
+    const currentAttachedFileName = attachedFileName;
+    const currentAttachedFileText = attachedFileText;
+    setAttachedFileName(null);
+    setAttachedFileText(null);
 
     // Optimistically add user message
     let convId = currentConvId
@@ -297,17 +407,18 @@ export default function ChatScreen() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          message: text.trim(),
+          message: text.trim() || `Analyze the attached file: ${currentAttachedFileName}`,
           conversation_id: payloadConvId,
+          language: i18n.language,
+          mode: chatMode,
+          simplify: simplify,
+          attached_file_text: currentAttachedFileText,
         }),
       })
 
       if (!response.ok || !response.body) {
         throw new Error(`HTTP ${response.status}`)
       }
-
-      // Switch from thinking-spinner to streaming text
-      setIsThinking(false)
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
@@ -316,9 +427,16 @@ export default function ChatScreen() {
       let finalConfidence: Message['confidence'] = 'medium'
       // backendConvId starts as the same convId (or temp); updated when 'done' event arrives
       let backendConvId = convId
+      let hasReceivedData = false
 
       while (true) {
         const { done, value } = await reader.read()
+        
+        if (!hasReceivedData && !done) {
+          setIsThinking(false)
+          hasReceivedData = true
+        }
+
         if (done) break
 
         const raw = decoder.decode(value, { stream: true })
@@ -343,11 +461,12 @@ export default function ChatScreen() {
                   page: s.page ?? '',
                   section: s.section ?? '',
                   snippet: s.snippet ?? '',
+                  document_id: s.document_id,
                 }))
                 const score: number = data.confidence ?? 0
                 finalConfidence = score >= 0.70 ? 'high' : score >= 0.40 ? 'medium' : 'none'
               } else if (currentEvent === 'not_found') {
-                accumulated = data.message ?? 'No supporting information found in official HTE documents.'
+                accumulated = data.message ?? 'No supporting information found in official documents.'
                 setStreamingText(accumulated)
               } else if (currentEvent === 'error') {
                 accumulated = `⚠️ ${data.message ?? 'An error occurred. Please try again.'}`
@@ -405,7 +524,7 @@ export default function ChatScreen() {
       isStreamingRef.current = false
       showToast('Connection error. Is the backend server running?')
     }
-  }, [currentConvId, isThinking, showToast])
+  }, [currentConvId, isThinking, showToast, attachedFileName, attachedFileText, isExtractingFile, chatMode, i18n.language])
 
   const handleInputKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -465,14 +584,23 @@ export default function ChatScreen() {
               </svg>
             </button>
             <span className="text-sm font-medium text-foreground truncate">
-              {currentConv?.title ?? 'New conversation'}
+              {currentConv?.title ?? t('chat.new_conversation')}
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted border border-border text-xs text-muted-foreground">
-              <Sparkles className="w-3 h-3 text-primary" />
-              HTE-AI · v2.1
-            </div>
+            <button
+              onClick={() => setSimplify(!simplify)}
+              className={cn(
+                "px-3 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 border",
+                simplify 
+                  ? "bg-primary text-primary-foreground border-primary shadow-sm" 
+                  : "bg-muted text-muted-foreground border-border hover:text-foreground hover:bg-muted/80"
+              )}
+              title={t('chat.citizen_mode_tooltip', 'Simplify complex legal jargon into easy-to-understand language.')}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              {t('chat.citizen_mode', 'Citizen Mode')}
+            </button>
             <button
               onClick={() => setRightPanelOpen(!rightPanelOpen)}
               className={cn(
@@ -490,15 +618,21 @@ export default function ChatScreen() {
           {messages.length === 0 && !isThinking && !streamingText ? (
             <EmptyState onPrompt={(text) => sendMessage(text)} />
           ) : (
-            <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+            <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
               {messages.map((msg) => (
                 <ChatMessage
                   key={msg.id}
                   message={msg}
                   onFollowUp={sendMessage}
-                  onBookmark={() => showToast('Bookmarked!')}
-                  onCopy={() => showToast('Copied to clipboard!')}
+                  onBookmark={() => showToast(t('chat.bookmarked'))}
+                  onCopy={() => showToast(t('chat.copied'))}
                   onRegenerate={() => {}}
+                  onEdit={(text) => {
+                    setInput(text)
+                    if (textareaRef.current) {
+                      textareaRef.current.focus()
+                    }
+                  }}
                 />
               ))}
               {isThinking && <ThinkingIndicator />}
@@ -510,36 +644,106 @@ export default function ChatScreen() {
 
         {/* Input bar */}
         <div className="px-4 pb-4 pt-3 border-t border-border bg-background shrink-0">
-          <div className="max-w-3xl mx-auto">
-            <div className="flex items-end gap-2 px-3 py-2.5 rounded-2xl border border-input bg-card shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-ring transition-all">
-              <button className="shrink-0 mb-1 text-muted-foreground hover:text-foreground transition-colors">
-                <Paperclip className="w-4 h-4" />
-              </button>
+          <div className="max-w-2xl mx-auto">
+            {attachedFileName && (
+              <div className="mb-2 flex items-center gap-2">
+                <div className="inline-flex items-center gap-2 bg-primary/10 text-primary border border-primary/20 px-3 py-1.5 rounded-full text-sm font-medium">
+                  <Paperclip className="w-4 h-4" />
+                  <span className="max-w-[200px] truncate">{attachedFileName}</span>
+                  <button 
+                    onClick={() => { setAttachedFileName(null); setAttachedFileText(null); }}
+                    className="p-0.5 hover:bg-primary/20 rounded-full transition-colors ml-1"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="flex items-end gap-2 px-3 py-2 rounded-2xl border border-input bg-card shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-ring" style={{ transition: 'all 0.18s ease' }}>
+              <div className="shrink-0 mb-3 ml-1 text-muted-foreground flex gap-1">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isExtractingFile}
+                  className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
+                  title="Attach file"
+                >
+                  {isExtractingFile ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <Paperclip className="w-4 h-4 text-muted-foreground/70" />}
+                </button>
+                <input 
+                  type="file" 
+                  ref={fileInputRef}
+                  className="hidden" 
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    setIsExtractingFile(true)
+                    setAttachedFileName(file.name)
+                    try {
+                      const formData = new FormData()
+                      formData.append('file', file)
+                      const token = getAuthToken()
+                      const res = await fetch(`${API_BASE}/chat/extract-file`, {
+                        method: 'POST',
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                        body: formData,
+                      })
+                      if (res.ok) {
+                        const data = await res.json()
+                        setAttachedFileText(data.extracted_text)
+                        showToast(`Attached ${file.name}`)
+                      } else {
+                        setAttachedFileName(null)
+                        showToast("Failed to extract file")
+                      }
+                    } catch (err) {
+                      setAttachedFileName(null)
+                      showToast("Error uploading file")
+                    } finally {
+                      setIsExtractingFile(false)
+                      if (fileInputRef.current) fileInputRef.current.value = ''
+                    }
+                  }}
+                />
+              </div>
               <textarea
                 ref={textareaRef}
                 value={input}
                 onChange={handleInputChange}
                 onKeyDown={handleInputKey}
-                placeholder="Ask about HTE policies, circulars, scholarships…"
+                placeholder={t('chat.ask_question')}
                 rows={1}
-                className="flex-1 bg-transparent resize-none text-sm text-foreground placeholder:text-muted-foreground focus:outline-none min-h-[24px] max-h-40 leading-6 py-0.5"
+                className="flex-1 bg-transparent resize-none text-[15px] text-foreground placeholder:text-muted-foreground focus:outline-none min-h-[52px] max-h-40 leading-[52px] py-0"
               />
               <button
-                onClick={() => sendMessage(input)}
-                disabled={!input.trim() || isThinking}
+                onClick={toggleListening}
                 className={cn(
-                  'shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all',
-                  input.trim() && !isThinking
+                  'shrink-0 w-10 h-10 rounded-xl flex items-center justify-center mb-1.5',
+                  isListening ? 'text-red-500 bg-red-500/10' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                )}
+                style={{ transition: 'all 0.18s ease' }}
+                title={isListening ? "Stop listening" : "Start dictating"}
+              >
+                {isListening ? <MicOff className="w-4 h-4 animate-pulse" /> : <Mic className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={() => sendMessage(input)}
+                disabled={(!input.trim() && !attachedFileName) || isThinking || isExtractingFile}
+                className={cn(
+                  'shrink-0 w-10 h-10 rounded-xl flex items-center justify-center mb-1.5',
+                  (input.trim() || attachedFileName) && !isThinking && !isExtractingFile
                     ? 'bg-primary text-primary-foreground hover:opacity-90'
                     : 'bg-muted text-muted-foreground cursor-not-allowed'
                 )}
+                style={{ transition: 'all 0.18s ease' }}
               >
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-center text-xs text-muted-foreground/60 mt-1.5">
-              Answers are grounded in official HTE documents. Always verify critical decisions.
-            </p>
+            <div className="mt-2 text-center">
+              <p className="text-[11px] text-muted-foreground/60">
+                {t('chat.footer_warning', 'Answers are grounded in official documents only. Always verify with the department for legal matters.')}
+              </p>
+            </div>
           </div>
         </div>
       </div>
