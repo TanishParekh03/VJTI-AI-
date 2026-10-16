@@ -59,7 +59,7 @@ app = FastAPI(
     title="HTE AI Assistant API",
     description=(
         "Backend for the Higher & Technical Education Department AI policy assistant. "
-        "Powered by Supermemory for retrieval and Gemini for answer generation."
+        "Powered by Supermemory for retrieval and Maha-AI for answer generation."
     ),
     version="1.0.0",
     lifespan=lifespan,

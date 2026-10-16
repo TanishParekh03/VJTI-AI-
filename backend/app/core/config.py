@@ -30,15 +30,17 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 7
 
-    # ── Supermemory ───────────────────────────────────────────────────────────
-    supermemory_api_key: str = ""
+    # ── Vector DB (Qdrant) ────────────────────────────────────────────────────
+    qdrant_url: str = "http://localhost:6333"
+    qdrant_api_key: str = ""
 
     # ── LLM ───────────────────────────────────────────────────────────────────
-    llm_provider: Literal["gemini", "openai"] = "gemini"
-    gemini_api_key: str = ""
-    gemini_model: str = "models/gemini-flash-latest"
+    llm_provider: Literal["maha_ai", "openai"] = "maha_ai"
+    maha_ai_api_key: str = ""
+    maha_ai_model: str = "maha-ai-v1-fast"
     openai_api_key: str = ""
     openai_model: str = "gpt-4o"
+    gemini_api_key: str = ""
 
     # ── Maha-SSO (stub) ───────────────────────────────────────────────────────
     maha_sso_client_id: str = ""

@@ -9,6 +9,7 @@ import {
 import { MOCK_CONVERSATIONS, MOCK_DOCUMENTS } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
 import type { AppScreen } from '@/app/page'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   open: boolean
@@ -27,6 +28,7 @@ interface CommandItem {
 }
 
 export default function CommandPalette({ open, onClose, onNavigate, onLogout }: Props) {
+  const { t } = useTranslation()
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -41,11 +43,11 @@ export default function CommandPalette({ open, onClose, onNavigate, onLogout }: 
   }, [open])
 
   const navItems: CommandItem[] = [
-    { id: 'nav-chat', label: 'Go to Chat', description: 'AI Q&A assistant', icon: <MessageSquare className="w-4 h-4" />, action: () => { onNavigate('chat'); onClose() }, category: 'Navigation' },
-    { id: 'nav-docs', label: 'Go to Documents', description: 'Document library', icon: <FileText className="w-4 h-4" />, action: () => { onNavigate('documents'); onClose() }, category: 'Navigation' },
-    { id: 'nav-analytics', label: 'Go to Analytics', description: 'Usage statistics', icon: <BarChart2 className="w-4 h-4" />, action: () => { onNavigate('analytics'); onClose() }, category: 'Navigation' },
-    { id: 'nav-admin', label: 'Go to Admin', description: 'User management', icon: <Users className="w-4 h-4" />, action: () => { onNavigate('admin'); onClose() }, category: 'Navigation' },
-    { id: 'logout', label: 'Log out', icon: <LogOut className="w-4 h-4" />, action: () => { onLogout(); onClose() }, category: 'Account' },
+    { id: 'nav-chat', label: t('command.go_to_chat'), description: t('command.ai_assistant'), icon: <MessageSquare className="w-4 h-4" />, action: () => { onNavigate('chat'); onClose() }, category: t('command.navigation') },
+    { id: 'nav-docs', label: t('command.go_to_documents'), description: t('command.document_library'), icon: <FileText className="w-4 h-4" />, action: () => { onNavigate('documents'); onClose() }, category: t('command.navigation') },
+    { id: 'nav-analytics', label: t('command.go_to_analytics'), description: t('command.usage_statistics'), icon: <BarChart2 className="w-4 h-4" />, action: () => { onNavigate('analytics'); onClose() }, category: t('command.navigation') },
+    { id: 'nav-admin', label: t('command.go_to_admin'), description: t('command.user_management'), icon: <Users className="w-4 h-4" />, action: () => { onNavigate('admin'); onClose() }, category: t('command.navigation') },
+    { id: 'logout', label: t('command.log_out'), icon: <LogOut className="w-4 h-4" />, action: () => { onLogout(); onClose() }, category: t('command.account') },
   ]
 
   const convItems: CommandItem[] = MOCK_CONVERSATIONS.slice(0, 4).map((c) => ({
@@ -54,7 +56,7 @@ export default function CommandPalette({ open, onClose, onNavigate, onLogout }: 
     description: c.preview,
     icon: <Hash className="w-4 h-4" />,
     action: () => { onNavigate('chat'); onClose() },
-    category: 'Recent Conversations',
+    category: t('command.recent_conversations'),
   }))
 
   const [apiDocs, setApiDocs] = useState<any[]>([])
@@ -83,7 +85,7 @@ export default function CommandPalette({ open, onClose, onNavigate, onLogout }: 
     description: d.category || 'General',
     icon: <FileText className="w-4 h-4" />,
     action: () => { onNavigate('documents'); onClose() },
-    category: 'Documents',
+    category: t('command.documents'),
   }))
 
   const allItems = [...navItems, ...convItems, ...docItems]
@@ -152,7 +154,7 @@ export default function CommandPalette({ open, onClose, onNavigate, onLogout }: 
                   value={query}
                   onChange={(e) => { setQuery(e.target.value); setActive(0) }}
                   onKeyDown={handleKey}
-                  placeholder="Search pages, documents, conversations…"
+                  placeholder={t('command.search_placeholder')}
                   className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
                 />
                 {query && (
@@ -170,7 +172,7 @@ export default function CommandPalette({ open, onClose, onNavigate, onLogout }: 
                 {flatFiltered.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 text-center">
                     <Sparkles className="w-6 h-6 text-muted-foreground/40 mb-2" />
-                    <p className="text-sm text-muted-foreground">No results for &ldquo;{query}&rdquo;</p>
+                    <p className="text-sm text-muted-foreground">{t('command.no_results')} &ldquo;{query}&rdquo;</p>
                   </div>
                 ) : (
                   Object.entries(grouped).map(([category, items]) => (
@@ -214,11 +216,11 @@ export default function CommandPalette({ open, onClose, onNavigate, onLogout }: 
               <div className="flex items-center gap-4 px-4 py-2.5 border-t border-border bg-muted/40">
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[10px]">↑↓</kbd>
-                  navigate
+                  {t('command.navigate')}
                 </div>
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <kbd className="px-1.5 py-0.5 rounded border border-border bg-background text-[10px]">↵</kbd>
-                  select
+                  {t('command.select')}
                 </div>
               </div>
             </div>

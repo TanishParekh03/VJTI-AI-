@@ -22,6 +22,7 @@ class Source(Base):
     section: Mapped[str | None] = mapped_column(String(256), nullable=True)
     snippet: Mapped[str] = mapped_column(Text, nullable=False, default="")
     relevance_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    document_id: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
     # Relationship
     message: Mapped["Message"] = relationship(back_populates="sources", lazy="select")  # type: ignore[name-defined]  # noqa: F821

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Search, MessageSquare, ChevronDown, ChevronRight } from 'lucide-react'
 import { MOCK_CONVERSATIONS, type Conversation } from '@/lib/mock-data'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   conversations: Conversation[]
@@ -92,6 +93,7 @@ function ConvGroup({
 
 export default function ChatSidebar({ conversations, currentConvId, onSelectConv, onNewChat }: Props) {
   const [search, setSearch] = useState('')
+  const { t } = useTranslation()
 
   const filtered = conversations.filter(
     (c) =>
@@ -110,7 +112,7 @@ export default function ChatSidebar({ conversations, currentConvId, onSelectConv
           className="w-full flex items-center justify-center gap-2 h-9 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition"
         >
           <Plus className="w-4 h-4" />
-          New chat
+          {t('chat.new_chat')}
         </button>
       </div>
 
@@ -122,7 +124,7 @@ export default function ChatSidebar({ conversations, currentConvId, onSelectConv
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search conversations…"
+            placeholder={t('chat.search_conversations')}
             className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
           />
         </div>
@@ -133,13 +135,13 @@ export default function ChatSidebar({ conversations, currentConvId, onSelectConv
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
             <MessageSquare className="w-8 h-8 text-muted-foreground/40 mb-2" />
-            <p className="text-sm text-muted-foreground">No conversations found</p>
+            <p className="text-sm text-muted-foreground">{t('chat.no_conversations_found')}</p>
           </div>
         ) : (
           <>
-            <ConvGroup label="Today" items={today} currentId={currentConvId} onSelect={onSelectConv} />
-            <ConvGroup label="Previous 7 days" items={week} currentId={currentConvId} onSelect={onSelectConv} />
-            <ConvGroup label="Older" items={older} currentId={currentConvId} onSelect={onSelectConv} />
+            <ConvGroup label={t('chat.today')} items={today} currentId={currentConvId} onSelect={onSelectConv} />
+            <ConvGroup label={t('chat.previous_7_days')} items={week} currentId={currentConvId} onSelect={onSelectConv} />
+            <ConvGroup label={t('chat.older')} items={older} currentId={currentConvId} onSelect={onSelectConv} />
           </>
         )}
       </div>

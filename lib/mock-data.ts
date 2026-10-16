@@ -10,6 +10,7 @@ export interface Source {
   page: string
   section: string
   snippet: string
+  document_id?: string
 }
 
 export interface Message {

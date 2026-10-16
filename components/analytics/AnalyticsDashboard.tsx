@@ -7,6 +7,7 @@ import {
 } from 'recharts'
 import { FileText, MessageSquare, Zap, Users, TrendingUp, TrendingDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 const ICON_MAP: Record<string, React.ElementType> = { FileText, MessageSquare, Zap, Users }
 
@@ -17,7 +18,7 @@ const CHART_COLORS = {
   accent: 'hsl(45 90% 54%)',
 }
 
-function StatCard({ stat, index }: { stat: typeof STAT_CARDS[0]; index: number }) {
+function StatCard({ stat, index }: { stat: any; index: number }) {
   const Icon = ICON_MAP[stat.icon]
   const isUp = stat.trend === 'up'
 
@@ -77,6 +78,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
 }
 
 export default function AnalyticsDashboard() {
+  const { t } = useTranslation()
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d')
   const [statCards, setStatCards] = useState<any[]>([])
   const [queryTrends, setQueryTrends] = useState<any[]>([])
@@ -97,7 +99,7 @@ export default function AnalyticsDashboard() {
   const fetchAnalyticsData = useCallback(async () => {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('hte_access_token') : null
-      const headers = token ? { Authorization: `Bearer ${token}` } : {}
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
 
       const [overviewRes, queriesRes, docsRes] = await Promise.all([
         fetch(`${API_BASE}/analytics/overview`, { headers }),
@@ -137,8 +139,8 @@ export default function AnalyticsDashboard() {
         {/* Page header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Analytics</h1>
-            <p className="text-sm text-muted-foreground">Platform usage insights · Live System Metrics</p>
+            <h1 className="text-xl font-bold text-foreground">{t('analytics.title')}</h1>
+            <p className="text-sm text-muted-foreground">{t('analytics.platform_insights')}</p>
           </div>
           <div className="flex items-center gap-2">
             {(['7d', '30d', '90d'] as const).map((r) => (
@@ -165,7 +167,7 @@ export default function AnalyticsDashboard() {
 
         {/* Row 2: Query trend + Category distribution */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <ChartCard title="Query & User Trends" className="lg:col-span-2">
+          <ChartCard title={t('analytics.query_user_trends')} className="lg:col-span-2">
             <ResponsiveContainer width="100%" height={220}>
               <AreaChart data={queryTrends} margin={{ top: 0, right: 4, left: -20, bottom: 0 }}>
                 <defs>
@@ -183,13 +185,13 @@ export default function AnalyticsDashboard() {
                 <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
-                <Area type="monotone" dataKey="queries" name="Queries" stroke={CHART_COLORS.primary} strokeWidth={2} fill="url(#gradQ)" />
-                <Area type="monotone" dataKey="users" name="Active Users" stroke={CHART_COLORS.secondary} strokeWidth={2} fill="url(#gradU)" />
+                <Area type="monotone" dataKey="queries" name={t('analytics.queries')} stroke={CHART_COLORS.primary} strokeWidth={2} fill="url(#gradQ)" />
+                <Area type="monotone" dataKey="users" name={t('analytics.active_users')} stroke={CHART_COLORS.secondary} strokeWidth={2} fill="url(#gradU)" />
               </AreaChart>
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Documents by Category">
+          <ChartCard title={t('analytics.docs_by_category')}>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
                 <Pie
@@ -205,7 +207,7 @@ export default function AnalyticsDashboard() {
                     <Cell key={entry.name} fill={entry.color || CHART_COLORS.primary} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: number) => [value, 'Documents']} />
+                <Tooltip formatter={(value: any) => [value, t('analytics.documents')]} />
               </PieChart>
             </ResponsiveContainer>
             <div className="space-y-1.5 mt-2">
@@ -224,43 +226,43 @@ export default function AnalyticsDashboard() {
 
         {/* Row 3: FAQ bar + popular docs + response time */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <ChartCard title="Top Questions Asked" className="lg:col-span-1">
+          <ChartCard title={t('analytics.top_questions')} className="lg:col-span-1">
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={docAnalytics.faq_data.slice(0, 6)} layout="vertical" margin={{ top: 0, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} strokeOpacity={0.4} />
                 <XAxis type="number" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
                 <YAxis type="category" dataKey="question" tick={{ fontSize: 10 }} width={140} tickLine={false} axisLine={false} />
-                <Tooltip formatter={(v: number) => [v.toLocaleString(), 'Queries']} />
-                <Bar dataKey="count" name="Queries" fill={CHART_COLORS.primary} radius={[0, 4, 4, 0]} />
+                <Tooltip formatter={(v: number) => [v.toLocaleString(), t('analytics.queries')]} />
+                <Bar dataKey="count" name={t('analytics.queries')} fill={CHART_COLORS.primary} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Most Viewed Documents">
+          <ChartCard title={t('analytics.most_viewed')}>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={docAnalytics.popular_docs} margin={{ top: 0, right: 4, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.4} />
                 <XAxis dataKey="name" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} angle={-20} textAnchor="end" height={40} />
                 <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                <Tooltip formatter={(v: number) => [v.toLocaleString(), 'Views']} />
-                <Bar dataKey="views" name="Views" fill={CHART_COLORS.tertiary} radius={[4, 4, 0, 0]} />
+                <Tooltip formatter={(v: number) => [v.toLocaleString(), t('analytics.views')]} />
+                <Bar dataKey="views" name={t('analytics.views')} fill={CHART_COLORS.tertiary} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Avg. Response Time (sec)">
+          <ChartCard title={t('analytics.avg_response_time_sec')}>
             <ResponsiveContainer width="100%" height={240}>
               <LineChart data={docAnalytics.response_time} margin={{ top: 0, right: 4, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.4} />
                 <XAxis dataKey="day" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} domain={[0.8, 2.2]} />
-                <Tooltip formatter={(v: number) => [`${v}s`, 'Avg. Response']} />
-                <Line type="monotone" dataKey="time" name="Response (s)" stroke={CHART_COLORS.accent} strokeWidth={2.5} dot={{ fill: CHART_COLORS.accent, r: 4 }} activeDot={{ r: 6 }} />
+                <Tooltip formatter={(v: number) => [`${v}s`, t('analytics.avg_response')]} />
+                <Line type="monotone" dataKey="time" name={t('analytics.response_s')} stroke={CHART_COLORS.accent} strokeWidth={2.5} dot={{ fill: CHART_COLORS.accent, r: 4 }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
             <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
               <span className="w-2 h-2 rounded-full bg-green-500" />
-              SLA target: ≤ 2.0s — <span className="text-green-600 dark:text-green-400 font-medium">All days within target</span>
+              {t('analytics.sla_target')} <span className="text-green-600 dark:text-green-400 font-medium">{t('analytics.all_within_target')}</span>
             </div>
           </ChartCard>
         </div>

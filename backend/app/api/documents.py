@@ -13,6 +13,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,14 +33,21 @@ from app.services import retrieval_service
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
-ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx"}
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".txt", ".md", ".jpg", ".jpeg", ".png"}
 MAX_FILE_SIZE_MB = 50
 MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
+
+UPLOADS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "uploads")
+os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 
 def _ext_to_file_type(filename: str) -> str:
     ext = os.path.splitext(filename)[1].lower()
-    return {"pdf": "PDF", ".pdf": "PDF", ".docx": "DOCX", ".xlsx": "XLSX"}.get(ext, "PDF")
+    mapping = {
+        ".pdf": "PDF", ".docx": "DOCX", ".xlsx": "XLSX", 
+        ".jpg": "IMAGE", ".jpeg": "IMAGE", ".png": "IMAGE"
+    }
+    return mapping.get(ext, "PDF")
 
 
 def _format_size(size_bytes: int) -> str:
@@ -63,9 +71,79 @@ def _extract_text_from_file_bytes(file_bytes: bytes, filename: str) -> str:
                 if t:
                     text_pages.append(t)
             extracted = "\n\n".join(text_pages)
-            if extracted.strip():
+            
+            if len(extracted.strip()) > 50:
                 return extracted
+                
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info("PyPDF text extraction insufficient. Falling back to OCR.")
+            
+            try:
+                from pdf2image import convert_from_bytes
+                import pytesseract
+                
+                logger.info("Using Tesseract OCR for Multimodal OCR...")
+                images = convert_from_bytes(file_bytes)
+                ocr_text = []
+                for img in images:
+                    # eng+mar+hin is English + Marathi + Hindi OCR
+                    text = pytesseract.image_to_string(img, lang="eng+mar+hin")
+                    if text:
+                        ocr_text.append(text)
+                
+                extracted_ocr = "\n\n".join(ocr_text)
+                if extracted_ocr and extracted_ocr.strip():
+                    return extracted_ocr
+            except ImportError:
+                logger.warning("pytesseract or pdf2image not installed. Skipping OCR.")
+            except Exception as e:
+                logger.warning(f"Tesseract OCR failed: {e}")
+                
         except Exception:
+            pass
+
+    elif ext == "docx":
+        try:
+            import io
+            import docx
+            doc = docx.Document(io.BytesIO(file_bytes))
+            return "\n".join([paragraph.text for paragraph in doc.paragraphs])
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to extract text from docx: {e}")
+            pass
+            
+    elif ext == "xlsx":
+        try:
+            import io
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+            text_lines = []
+            for sheet in wb.worksheets:
+                for row in sheet.iter_rows(values_only=True):
+                    row_text = " ".join([str(cell) for cell in row if cell is not None])
+                    if row_text.strip():
+                        text_lines.append(row_text)
+            return "\n".join(text_lines)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to extract text from xlsx: {e}")
+            pass
+
+    elif ext in ["jpg", "jpeg", "png"]:
+        try:
+            import io
+            from PIL import Image
+            import pytesseract
+            
+            img = Image.open(io.BytesIO(file_bytes))
+            text = pytesseract.image_to_string(img, lang="eng+mar+hin")
+            if text and text.strip():
+                return text
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to extract text from image: {e}")
             pass
 
     return file_bytes.decode("utf-8", errors="ignore")
@@ -128,14 +206,86 @@ async def _ingest_in_background(
                 doc.tags = json.dumps(ai_tags)
                 doc.supermemory_document_id = doc_id  # custom_id = postgres id
             await db.commit()
+
+            # 5. Extract lineage (GR relationships)
+            from app.models.lineage import GRRelationship
+            from sqlalchemy import or_
+
+            lineage_data = await llm_service.extract_document_lineage(raw_text)
+            for rel in lineage_data:
+                target_ref = str(rel.get("target_reference", "")).strip()
+                if not target_ref:
+                    continue
+                
+                # Try to resolve target_ref against existing documents
+                # Exact match on gr_number or title first
+                target_doc_id = None
+                resolve_query = select(Document).where(
+                    or_(
+                        Document.gr_number == target_ref,
+                        Document.title.ilike(f"%{target_ref}%")
+                    )
+                ).limit(1)
+                resolved_res = await db.execute(resolve_query)
+                resolved_doc = resolved_res.scalar_one_or_none()
+
+                if resolved_doc:
+                    target_doc_id = resolved_doc.id
+
+                # Create relationship record
+                gr_rel = GRRelationship(
+                    source_gr_id=doc_id,
+                    target_gr_id=target_doc_id,
+                    unresolved_reference=target_ref if not target_doc_id else None,
+                    relationship_type=rel.get("relationship_type", "references"),
+                    confidence=float(rel.get("confidence", 1.0)),
+                    extracted_text=rel.get("extracted_text")
+                )
+                db.add(gr_rel)
+            
+            await db.commit()
         except Exception as exc:
+            import logging
+            log = logging.getLogger(__name__)
+            log.error(f"Ingestion failed for {doc_id}, auto-removing document: {exc}")
             async with AsyncSessionLocal() as err_db:
                 result = await err_db.execute(select(Document).where(Document.id == doc_id))
                 doc = result.scalar_one_or_none()
                 if doc:
-                    doc.status = "failed"
-                    doc.ingestion_error = str(exc)
-                await err_db.commit()
+                    # Remove from Supermemory
+                    if doc.supermemory_document_id:
+                        try:
+                            from app.services import retrieval_service
+                            await retrieval_service.delete_document(doc.supermemory_document_id)
+                        except Exception:
+                            pass
+                            
+                    # Remove from local uploads
+                    import os
+                    ext = ""
+                    if filename and "." in filename:
+                        ext = "." + filename.split(".")[-1].lower()
+                    file_path = os.path.join(UPLOADS_DIR, f"{doc_id}{ext}")
+                    if os.path.exists(file_path):
+                        try:
+                            os.remove(file_path)
+                        except Exception:
+                            pass
+                            
+                    # Remove from Supabase
+                    try:
+                        from supabase import create_client
+                        supabase_url = os.getenv("SUPABASE_URL")
+                        supabase_key = os.getenv("SUPABASE_KEY")
+                        if supabase_url and supabase_key:
+                            supabase = create_client(supabase_url, supabase_key)
+                            supabase.storage.from_("VJTI_AI").remove([f"{doc_id}{ext}"])
+                    except Exception as e:
+                        log.warning(f"Failed to remove failed document from Supabase: {e}")
+
+                    # Remove from Postgres DB
+                    await err_db.delete(doc)
+                    await err_db.commit()
 
 
 @router.post("/compare", response_model=CompareResponse)
@@ -188,7 +338,8 @@ Produce a comparison covering these sections:
 4. **Common Ground** — Shared policies, eligibility criteria, or dates
 5. **Recommendation** — Which document takes precedence and why
 
-Start directly with a ### heading. Be concise and precise."""
+Start directly with a ### heading. Be concise and precise.
+Respond strictly in the following language code: {body.language}"""
 
     from app.services import llm_service
     messages = [{"role": "user", "content": prompt}]
@@ -265,6 +416,36 @@ async def upload_document(
         uploaded_by=user.id,
     )
     db.add(doc)
+
+    # Save original file to disk
+    file_ext = os.path.splitext(file.filename)[1].lower() if file.filename else ""
+    file_path = os.path.join(UPLOADS_DIR, f"{doc_id}{file_ext}")
+    with open(file_path, "wb") as f:
+        f.write(file_bytes)
+
+    # Upload to Supabase bucket asynchronously
+    import threading
+    def upload_to_supabase(doc_id, file_bytes, ext):
+        try:
+            import os
+            from supabase import create_client
+            
+            supabase_url = os.getenv("SUPABASE_URL")
+            supabase_key = os.getenv("SUPABASE_KEY")
+            if supabase_url and supabase_key:
+                supabase = create_client(supabase_url, supabase_key)
+                
+                # Re-read file to avoid closed file issues
+                supabase.storage.from_("VJTI_AI").upload(
+                    file=file_bytes,
+                    path=f"{doc_id}{ext}",
+                    file_options={"content-type": "application/pdf" if ext == ".pdf" else "application/octet-stream", "upsert": "true"}
+                )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to upload to Supabase: {e}")
+            
+    threading.Thread(target=upload_to_supabase, args=(doc_id, file_bytes, file_ext)).start()
 
     # Log analytics event
     event = AnalyticsEvent(
@@ -383,19 +564,63 @@ async def get_document_status(
     )
 
 
-@router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
-async def delete_document(
+@router.get("/{doc_id}/download")
+async def download_document(
     doc_id: str,
-    user: OfficerOrAdmin,
+    user: CurrentUser,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> Response:
-    """Delete a document from Postgres and Supermemory. Role: officer or admin."""
+):
+    """Download the original document file."""
     result = await db.execute(select(Document).where(Document.id == doc_id))
     doc = result.scalar_one_or_none()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
+        
+    # Find the file in the uploads directory matching the doc_id and any extension
+    import glob
+    matching_files = glob.glob(os.path.join(UPLOADS_DIR, f"{doc_id}.*"))
+    
+    file_ext = ".pdf"
+    if matching_files:
+        file_ext = os.path.splitext(matching_files[0])[1].lower()
+        
+    supabase_url = os.getenv("SUPABASE_URL")
+    if supabase_url:
+        public_url = f"{supabase_url}/storage/v1/object/public/VJTI_AI/{doc_id}{file_ext}"
+        return RedirectResponse(url=public_url)
+    
+    if not matching_files:
+        raise HTTPException(status_code=404, detail="Document file not found on disk")
+        
+    file_path = matching_files[0]
+    
+    from fastapi.responses import FileResponse
+    return FileResponse(
+        path=file_path,
+        filename=doc.title + os.path.splitext(file_path)[1],
+        content_disposition_type="inline"  # Opens in browser instead of forcing download
+    )
 
-    # Delete from Supermemory first (best-effort)
+
+@router.delete("/{doc_id}", status_code=status.HTTP_204_NO_CONTENT, response_class=Response)
+async def delete_document(
+    doc_id: str,
+    _: OfficerOrAdmin,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """
+    Officer/Admin only: Delete a document.
+    Deletes from PostgreSQL; CASCADE takes care of Sources and messages.
+    Also deletes from Qdrant via Supermemory.
+    """
+    result = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found",
+        )
+
     if doc.supermemory_document_id:
         try:
             await retrieval_service.delete_document(doc.supermemory_document_id)
@@ -403,7 +628,91 @@ async def delete_document(
             pass  # Don't block Postgres delete on Supermemory failure
 
     await db.delete(doc)
+    await db.commit()
+    logger.info("document_deleted", extra={"doc_id": doc_id})
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{doc_id}/lineage")
+async def get_document_lineage(
+    doc_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    depth: int = 3,
+):
+    """
+    Get the GR lineage graph for a document.
+    Returns both incoming and outgoing relationships recursively up to `depth`.
+    """
+    from sqlalchemy.orm import selectinload
+    from app.models.lineage import GRRelationship
+    
+    nodes = {}
+    edges = {}
+    
+    visited_docs = set()
+    queue = [(doc_id, 0)]
+    
+    while queue:
+        current_id, current_depth = queue.pop(0)
+        
+        if current_id in visited_docs or current_depth > depth:
+            continue
+            
+        visited_docs.add(current_id)
+        
+        # Fetch document
+        doc_res = await db.execute(select(Document).where(Document.id == current_id))
+        doc = doc_res.scalar_one_or_none()
+        if not doc:
+            continue
+            
+        nodes[current_id] = {
+            "id": doc.id,
+            "title": doc.title,
+            "gr_number": doc.gr_number,
+            "upload_date": doc.upload_date.isoformat() if doc.upload_date else None,
+            "category": doc.category,
+            "status": doc.status
+        }
+        
+        # Fetch outgoing relationships
+        out_res = await db.execute(
+            select(GRRelationship).where(GRRelationship.source_gr_id == current_id)
+        )
+        for rel in out_res.scalars().all():
+            edges[rel.id] = {
+                "id": rel.id,
+                "source_gr_id": rel.source_gr_id,
+                "target_gr_id": rel.target_gr_id,
+                "unresolved_reference": rel.unresolved_reference,
+                "relationship_type": rel.relationship_type,
+                "confidence": rel.confidence,
+                "extracted_text": rel.extracted_text,
+            }
+            if rel.target_gr_id and rel.target_gr_id not in visited_docs:
+                queue.append((rel.target_gr_id, current_depth + 1))
+                
+        # Fetch incoming relationships
+        in_res = await db.execute(
+            select(GRRelationship).where(GRRelationship.target_gr_id == current_id)
+        )
+        for rel in in_res.scalars().all():
+            edges[rel.id] = {
+                "id": rel.id,
+                "source_gr_id": rel.source_gr_id,
+                "target_gr_id": rel.target_gr_id,
+                "unresolved_reference": rel.unresolved_reference,
+                "relationship_type": rel.relationship_type,
+                "confidence": rel.confidence,
+                "extracted_text": rel.extracted_text,
+            }
+            if rel.source_gr_id and rel.source_gr_id not in visited_docs:
+                queue.append((rel.source_gr_id, current_depth + 1))
+                
+    return {
+        "nodes": list(nodes.values()),
+        "edges": list(edges.values())
+    }
 
 
 @router.patch("/{doc_id}", response_model=DocumentRead)
@@ -437,5 +746,83 @@ async def update_document(
     )
 
 
+@router.get("/{doc_id}/translate")
+async def translate_summary(
+    doc_id: str,
+    language: str,
+    user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """
+    Dynamically translate a document summary to the requested language.
+    Uses LLM for translation if language is not English.
+    """
+    result = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+        
+    if language == "en" or not doc.summary:
+        return {"summary": doc.summary}
+        
+    from app.services import llm_service
+    lang_name = "Marathi" if language == "mr" else "Hindi" if language == "hi" else "English"
+    try:
+        translated = await llm_service.translate_text(doc.summary, target_lang=lang_name)
+        return {"summary": translated}
+    except Exception:
+        return {"summary": doc.summary}
 
+@router.get("/{doc_id}/checklist")
+async def extract_compliance_checklist(
+    doc_id: str,
+    user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    language: str = "en",
+):
+    """
+    Extract a structured compliance checklist from a document.
+    Finds actionable items, deadlines, required forms, and eligibility criteria.
+    """
+    result = await db.execute(select(Document).where(Document.id == doc_id))
+    doc = result.scalar_one_or_none()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
 
+    import glob
+    matching_files = glob.glob(os.path.join(UPLOADS_DIR, f"{doc_id}.*"))
+    if not matching_files:
+        raise HTTPException(status_code=404, detail="Document file not found on disk to extract text")
+    
+    file_path = matching_files[0]
+    with open(file_path, "rb") as f:
+        file_bytes = f.read()
+
+    raw_text = _extract_text_from_file_bytes(file_bytes, os.path.basename(file_path))
+    
+    prompt = f"""You are an expert compliance auditor for the Maharashtra Government Higher & Technical Education Department.
+Analyze the following official document and extract a strict, actionable compliance checklist.
+
+Document Title: {doc.title}
+
+Excerpt:
+{raw_text[:8000]}
+
+Format your response as a clean Markdown checklist.
+Include:
+- 📅 **Deadlines** (if any)
+- 📝 **Required Forms/Documents**
+- ✅ **Eligibility Criteria**
+- ⚙️ **Actionable Next Steps** for officers or institutions
+
+If the document does not contain compliance items, return a polite message stating that this document appears to be purely informational.
+Respond strictly in the following language code: {language}"""
+
+    from app.services import llm_service
+    messages = [{"role": "user", "content": prompt}]
+    
+    checklist_text = ""
+    async for chunk in llm_service.generate(messages, stream=False):
+        checklist_text += chunk
+
+    return {"checklist": checklist_text.strip()}
